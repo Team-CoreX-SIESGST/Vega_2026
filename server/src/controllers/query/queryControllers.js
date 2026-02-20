@@ -1005,11 +1005,6 @@ export const getDashboardStatistics = asyncHandler(async (req, res) => {
 
 // Add this function to your queryControllers.js file
 
-import fs from 'fs';
-import path from 'path';
-import csv from 'csv-parser';
-import { fileURLToPath } from "url";
-
 // Insert data from CSV file
 export const insertData = asyncHandler(async (req, res) => {
     // Get current file's directory (for ES modules)
