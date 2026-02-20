@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -40,15 +40,19 @@ const normalizeStations = (apiResponse) => {
     .filter((s) => s.code || s.name);
 };
 
+const normalizeRole = (role = "") =>
+  String(role).trim().toLowerCase().replace(/[\s_]+/g, "");
+
+const getRoleRedirectPath = (role) => {
+  const normalizedRole = normalizeRole(role);
+  return normalizedRole === "admin" || normalizedRole === "superadmin"
+    ? "/"
+    : "/mobile";
+};
+
 const LoginPage = () => {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { login } = useAuth();
-  const redirectTo = searchParams.get("redirect");
-  const safeRedirect =
-    redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")
-      ? redirectTo
-      : "/";
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -139,7 +143,8 @@ const LoginPage = () => {
     const result = await login(form.email, form.password);
     setSubmitting(false);
     if (result.success) {
-      router.push(safeRedirect);
+      const userRole = result.user?.role ?? result.data?.user?.role;
+      router.push(getRoleRedirectPath(userRole));
       return;
     }
     setErrors({ api: result.error || "Login failed. Please try again." });

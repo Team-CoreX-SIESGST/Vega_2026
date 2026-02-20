@@ -29,6 +29,7 @@ import {
   Lightbulb,
   Cpu,
 } from "lucide-react";
+import ProfileDropdown from "../components/ProfileDropdown";
 
 // AI Models configuration - Each will provide their best response
 const aiModels = [
@@ -729,14 +730,17 @@ const ChatPage = () => {
             </div>
           </div>
 
-          <button
-            onClick={handleNewChat}
-            disabled={isProcessing}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-purple-500 text-white text-sm font-medium hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50 backdrop-blur-sm"
-          >
-            <MessageSquare className="w-4 h-4 inline mr-2" />
-            New Battle
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleNewChat}
+              disabled={isProcessing}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-purple-500 text-white text-sm font-medium hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50 backdrop-blur-sm"
+            >
+              <MessageSquare className="w-4 h-4 inline mr-2" />
+              New Battle
+            </button>
+            <ProfileDropdown />
+          </div>
         </header>
 
         <div className="flex-1 flex overflow-hidden">

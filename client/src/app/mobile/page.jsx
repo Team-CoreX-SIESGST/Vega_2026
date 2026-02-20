@@ -95,6 +95,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { Train, ArrowRight, FileText, Bot, Clock, Smartphone, CheckCircle, Star } from 'lucide-react';
+import ProfileDropdown from '../components/ProfileDropdown';
 
 const features = [
   {
@@ -163,16 +164,19 @@ export default function MobileLandingPage() {
           {/* Nav actions */}
           <div className="flex items-center gap-4">
             {user ? (
-              <Link href="/mobile/issues">
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 hover:shadow-md"
-                  style={{ backgroundColor: '#4E4E94' }}
-                >
-                  My Issues <ArrowRight size={14} />
-                </motion.button>
-              </Link>
+              <>
+                <Link href="/mobile/issues">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 hover:shadow-md"
+                    style={{ backgroundColor: '#4E4E94' }}
+                  >
+                    My Issues <ArrowRight size={14} />
+                  </motion.button>
+                </Link>
+                <ProfileDropdown />
+              </>
             ) : (
               <>
                 <Link

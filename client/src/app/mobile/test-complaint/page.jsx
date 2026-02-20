@@ -6,6 +6,7 @@ import { apiClient } from '../../../utils/api_client';
 import { motion } from 'framer-motion';
 import { CheckCircle, AlertCircle, Image as ImageIcon, X, Loader2, Train, User, Brain, Database, ArrowRight, List } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import ProfileDropdown from '../../components/ProfileDropdown';
 
 export default function TestComplaintPage() {
   const { user } = useAuth();
@@ -194,9 +195,12 @@ export default function TestComplaintPage() {
     <ProtectedRoute>
       <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: '#1A1A2E' }}>
-            Test Complaint Workflow
-          </h1>
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: '#1A1A2E' }}>
+              Test Complaint Workflow
+            </h1>
+            <ProfileDropdown />
+          </div>
           <p className="text-sm mb-6" style={{ color: '#4A4A6A' }}>
             Complete workflow: User Input → Gemini Analysis → FastAPI NLP Classification → Output
           </p>

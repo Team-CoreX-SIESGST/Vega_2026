@@ -83,7 +83,7 @@ export function AuthProvider({ children }) {
             setToken(authToken);
             setUser(userData);
 
-            return { success: true, data: data.data };
+            return { success: true, user: userData, token: authToken, data: data.data };
         } catch (error) {
             const message = error.response?.data?.message || error.message;
             return { success: false, error: message };
@@ -93,7 +93,12 @@ export function AuthProvider({ children }) {
     // Register function — POST /api/auth/register (name, email, password, role?, station?)
     const register = async (name, email, password, role = 'user', station = null) => {
         try {
-            const body = { name, email, password, role };
+            const body = {
+                name,
+                email,
+                password,
+                role: role === 'super_admin' ? 'super admin' : role
+            };
             if (station) body.station = station;
 
             const { data } = await apiClient.post('/auth/register', body);
