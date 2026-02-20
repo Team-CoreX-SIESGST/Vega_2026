@@ -6,7 +6,8 @@ import {
     updateQuery,
     updateQueryStatus,
     deleteQuery,
-    getDashboardStatistics
+    getDashboardStatistics,
+    getStationQueryMapData
 } from "./queryControllers.js";
 import { verifyJWT } from "../../middlewares/auth.middleware.js";
 import { upload } from "../../middlewares/multer.middleware.js";
@@ -18,6 +19,13 @@ router.use(verifyJWT); // All routes require authentication
 
 // Dashboard statistics
 router.get("/dashboard/statistics", getDashboardStatistics);
+
+// Station-wise map data (Admin/Super Admin only)
+router.get(
+    "/map/stations",
+    checkRole(["admin", "super_admin"]),
+    getStationQueryMapData
+);
 
 // Create query with image upload (max 5 images)
 router.post(

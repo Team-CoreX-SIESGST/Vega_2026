@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Home, LayoutDashboard, LogOut, Smartphone } from "lucide-react";
+import { ChevronDown, Home, LayoutDashboard, LogOut, MapPinned, Smartphone } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const normalizeRole = (role = "") =>
@@ -115,13 +115,22 @@ export default function ProfileDropdown({ className = "" }) {
             </Link>
 
             {isAdmin && (
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-              >
-                <LayoutDashboard size={15} />
-                Dashboard
-              </Link>
+              <>
+                <Link
+                  href="/dashboard"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <LayoutDashboard size={15} />
+                  Dashboard
+                </Link>
+                <Link
+                  href="/map"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <MapPinned size={15} />
+                  Map View
+                </Link>
+              </>
             )}
           </div>
 

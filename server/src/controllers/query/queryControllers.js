@@ -1,9 +1,53 @@
 import Query from "../../models/Query.js";
 import { asyncHandler, sendResponse, uploadOnCloudinary } from "../../utils/index.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const stationsGeoPath = path.join(__dirname, "../../data/stations.json");
+let stationGeoIndexCache = null;
+
+const loadStationGeoIndex = () => {
+    if (stationGeoIndexCache) return stationGeoIndexCache;
+
+    try {
+        const rawData = fs.readFileSync(stationsGeoPath, "utf8");
+        const parsed = JSON.parse(rawData);
+        const features = Array.isArray(parsed?.features) ? parsed.features : [];
+
+        stationGeoIndexCache = new Map();
+        for (const feature of features) {
+            const properties = feature?.properties || {};
+            const coordinates = feature?.geometry?.coordinates || [];
+            const [longitude, latitude] = coordinates;
+            const stationCode = String(properties.code || "").trim().toUpperCase();
+
+            if (!stationCode || typeof latitude !== "number" || typeof longitude !== "number") {
+                continue;
+            }
+
+            stationGeoIndexCache.set(stationCode, {
+                station_code: stationCode,
+                station_name: properties.name || stationCode,
+                state: properties.state || null,
+                zone: properties.zone || null,
+                address: properties.address || null,
+                latitude,
+                longitude
+            });
+        }
+    } catch (error) {
+        console.error("Failed to load station geo index:", error?.message);
+        stationGeoIndexCache = new Map();
+    }
+
+    return stationGeoIndexCache;
+};
 
 // Check if train is running based on schedule and current time
 export const checkTrainRunningStatus = (trainSchedule) => {
@@ -288,6 +332,119 @@ export const calculatePriority = (isTrainRunning, geminiAnalysis, description) =
     console.log(`Calculated priority: ${finalPriority} (train running: ${isTrainRunning}, description: "${description.substring(0, 50)}...")`);
     return finalPriority;
 };
+
+// Get map data with query counts by station (Admin/Super Admin)
+export const getStationQueryMapData = asyncHandler(async (req, res) => {
+    const { status } = req.query;
+    const minCountRaw = Number.parseInt(req.query.min_count ?? "1", 10);
+    const minCount = Number.isNaN(minCountRaw) ? 1 : Math.max(1, minCountRaw);
+
+    const filter = {
+        station_code: { $exists: true, $nin: [null, ""] }
+    };
+
+    if (status) {
+        filter.status = status;
+    }
+
+    const aggregated = await Query.aggregate([
+        { $match: filter },
+        {
+            $group: {
+                _id: {
+                    $toUpper: {
+                        $trim: { input: "$station_code" }
+                    }
+                },
+                query_count: { $sum: 1 },
+                avg_priority: { $avg: "$priority_percentage" },
+                latest_query_at: { $max: "$createdAt" },
+                received: {
+                    $sum: { $cond: [{ $eq: ["$status", "received"] }, 1, 0] }
+                },
+                assigned: {
+                    $sum: { $cond: [{ $eq: ["$status", "assigned"] }, 1, 0] }
+                },
+                working_on: {
+                    $sum: { $cond: [{ $eq: ["$status", "working_on"] }, 1, 0] }
+                },
+                hold: {
+                    $sum: { $cond: [{ $eq: ["$status", "hold"] }, 1, 0] }
+                },
+                pending_info: {
+                    $sum: { $cond: [{ $eq: ["$status", "pending_info"] }, 1, 0] }
+                },
+                escalated: {
+                    $sum: { $cond: [{ $eq: ["$status", "escalated"] }, 1, 0] }
+                },
+                resolved: {
+                    $sum: { $cond: [{ $eq: ["$status", "resolved"] }, 1, 0] }
+                },
+                closed: {
+                    $sum: { $cond: [{ $eq: ["$status", "closed"] }, 1, 0] }
+                },
+                rejected: {
+                    $sum: { $cond: [{ $eq: ["$status", "rejected"] }, 1, 0] }
+                }
+            }
+        },
+        { $sort: { query_count: -1 } }
+    ]);
+
+    const stationGeoIndex = loadStationGeoIndex();
+    const unmatched_station_codes = [];
+
+    const stations = aggregated
+        .map((row) => {
+            const stationCode = row._id;
+            const stationGeo = stationGeoIndex.get(stationCode);
+
+            if (!stationGeo) {
+                unmatched_station_codes.push(stationCode);
+                return null;
+            }
+
+            return {
+                ...stationGeo,
+                query_count: row.query_count,
+                avg_priority: Number((row.avg_priority || 0).toFixed(1)),
+                latest_query_at: row.latest_query_at,
+                status_breakdown: {
+                    received: row.received,
+                    assigned: row.assigned,
+                    working_on: row.working_on,
+                    hold: row.hold,
+                    pending_info: row.pending_info,
+                    escalated: row.escalated,
+                    resolved: row.resolved,
+                    closed: row.closed,
+                    rejected: row.rejected
+                }
+            };
+        })
+        .filter((station) => station && station.query_count >= minCount);
+
+    const totalQueriesMapped = stations.reduce(
+        (sum, station) => sum + station.query_count,
+        0
+    );
+
+    return sendResponse(
+        res,
+        true,
+        {
+            stations,
+            summary: {
+                totalStationsWithQueries: stations.length,
+                totalQueriesMapped,
+                unmatchedStationCodes: unmatched_station_codes.slice(0, 100),
+                generatedAt: new Date().toISOString()
+            }
+        },
+        "Station map data fetched successfully",
+        200
+    );
+});
 
 // Create Query
 export const createQuery = asyncHandler(async (req, res) => {

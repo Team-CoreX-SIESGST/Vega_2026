@@ -32,7 +32,8 @@ import {
   RefreshCw,
   Calendar,
   MessageSquare,
-  FileText
+  FileText,
+  MapPinned
 } from 'lucide-react';
 import { getDashboardStatistics, getNotificationStatistics } from '@/services/dashboardService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -514,6 +515,7 @@ function DashboardSidebar({ pathname, user }) {
   const navItems = [
     { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
     { label: 'View Queries', href: '/dashboard/queries', icon: FileText },
+    { label: 'Station Map', href: '/map', icon: MapPinned },
     { label: 'RailMind ChatBot', href: '/chat', icon: MessageSquare },
   ];
 
