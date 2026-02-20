@@ -54,6 +54,12 @@ const querySchema = new mongoose.Schema(
             required: true,
             trim: true
         },
+        image_urls: [
+            {
+                type: String,
+                trim: true
+            }
+        ],
         keywords: [
             {
                 type: String,

@@ -1,10 +1,15 @@
 import Query from "../../models/Query.js";
+import TrainComplaintAlert from "../../models/TrainComplaintAlert.js";
 import { asyncHandler, sendResponse, uploadOnCloudinary } from "../../utils/index.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import axios from "axios";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import {
+    seedTrainAlertMockData as seedTrainAlertMockDataService,
+    triggerTrainComplaintSpikeAlert
+} from "../../services/trainComplaintAlertService.js";
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -569,10 +574,13 @@ export const createQuery = asyncHandler(async (req, res) => {
         category: geminiAnalysis.categories,
         priority_percentage,
         description,
+        image_urls: imageUrls,
         keywords: geminiAnalysis.keywords,
         departments: [fastApiResult.department || "General"],
         status: "received"
     });
+
+    const trainAlert = await triggerTrainComplaintSpikeAlert({ query });
 
     return sendResponse(
         res,
@@ -582,9 +590,82 @@ export const createQuery = asyncHandler(async (req, res) => {
             train_running: isTrainRunning,
             analysis: geminiAnalysis,
             fastapi_classification: fastApiResult,
-            current_priority: priority_percentage
+            current_priority: priority_percentage,
+            train_alert: trainAlert
         },
         "Query created successfully",
+        201
+    );
+});
+
+// Get train complaint spike alerts (Admin/Super Admin)
+export const getTrainComplaintAlerts = asyncHandler(async (req, res) => {
+    const { train_number, page = 1, limit = 10 } = req.query;
+    const filter = {};
+
+    if (train_number) {
+        filter.train_number = String(train_number).trim();
+    }
+
+    const currentPage = Math.max(1, Number.parseInt(page, 10) || 1);
+    const pageLimit = Math.max(1, Number.parseInt(limit, 10) || 10);
+    const skip = (currentPage - 1) * pageLimit;
+
+    const [alerts, total] = await Promise.all([
+        TrainComplaintAlert.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(pageLimit)
+            .lean(),
+        TrainComplaintAlert.countDocuments(filter)
+    ]);
+
+    return sendResponse(
+        res,
+        true,
+        {
+            alerts,
+            pagination: {
+                currentPage,
+                totalPages: Math.ceil(total / pageLimit),
+                totalAlerts: total,
+                limit: pageLimit
+            }
+        },
+        "Train complaint alerts fetched successfully",
+        200
+    );
+});
+
+// Seed mock complaint spike data for train alerts (Admin/Super Admin)
+export const seedTrainAlertMockData = asyncHandler(async (req, res) => {
+    const {
+        train_number: trainNumber = "107",
+        complaints_count: complaintsCount,
+        send_sms: sendSms = false,
+        force_alert: forceAlert = false
+    } = req.body || {};
+    const shouldSendSms =
+        typeof sendSms === "string"
+            ? sendSms.trim().toLowerCase() === "true"
+            : Boolean(sendSms);
+    const shouldForceAlert =
+        typeof forceAlert === "string"
+            ? forceAlert.trim().toLowerCase() === "true"
+            : Boolean(forceAlert);
+
+    const result = await seedTrainAlertMockDataService({
+        trainNumber,
+        complaintsCount,
+        sendSms: shouldSendSms,
+        forceAlert: shouldForceAlert
+    });
+
+    return sendResponse(
+        res,
+        true,
+        result,
+        "Mock train alert data seeded successfully",
         201
     );
 });
