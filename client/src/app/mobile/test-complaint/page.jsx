@@ -136,15 +136,6 @@ export default function TestComplaintPage() {
         formData.append('images', image);
       });
 
-      // Update workflow: Gemini analysis complete, NLP in progress
-      setTimeout(() => {
-        setWorkflowSteps(prev => ({
-          ...prev,
-          gemini_analysis: { status: 'completed', message: 'Gemini analysis complete' },
-          nlp_classification: { status: 'in_progress', message: 'Classifying with FastAPI NLP...' }
-        }));
-      }, 2000);
-
       const res = await apiClient.post('/mobile/complaint-with-gemini', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',

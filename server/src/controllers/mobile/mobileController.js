@@ -69,21 +69,19 @@ export const createComplaint = asyncHandler(async (req, res) => {
 
     const isTrainRunning = finalTrainSchedule ? checkTrainRunningStatus(finalTrainSchedule) : false;
 
-    const geminiAnalysis = await analyzeWithGemini(
+    const geminiPromise = analyzeWithGemini(
         effectiveDescription,
         [],
         finalTrainSchedule || {},
         isTrainRunning
     );
+    const classifierPromise = classifyDepartmentWithFastApi(effectiveDescription);
+    const [geminiAnalysis, fastApiResult] = await Promise.all([
+        geminiPromise,
+        classifierPromise
+    ]);
 
     const priority_percentage = calculatePriority(isTrainRunning, geminiAnalysis, effectiveDescription);
-
-    const fastApiResult = await classifyDepartmentWithFastApi({
-        description: effectiveDescription,
-        category: geminiAnalysis.categories?.[0] || null,
-        isUrgent: geminiAnalysis.is_urgent === true,
-        trainNumber: finalTrainSchedule?.train_no || effectiveTrainNumber || null
-    });
 
     const query = await Query.create({
         user_id: req.user._id,
@@ -176,32 +174,26 @@ export const createComplaintWithGemini = asyncHandler(async (req, res) => {
     // Determine if train is running based on schedule (if provided)
     const isTrainRunning = finalTrainSchedule ? checkTrainRunningStatus(finalTrainSchedule) : false;
 
-    // Step 1: Analyze with Gemini
-    let geminiAnalysis = null;
-    try {
-        geminiAnalysis = await analyzeWithGemini(
-            description,
-            imageUrls,
-            finalTrainSchedule || {},
-            isTrainRunning
-        );
-    } catch (error) {
+    // Run Gemini + NLP in parallel to reduce end-to-end latency.
+    const geminiPromise = analyzeWithGemini(
+        description,
+        imageUrls,
+        finalTrainSchedule || {},
+        isTrainRunning
+    ).catch((error) => {
         console.error("Gemini analysis error:", error);
-        geminiAnalysis = {
+        return {
             categories: ["general"],
             keywords: ["complaint", "railway", "issue"],
             priority_analysis: "Analysis failed",
             is_urgent: false
         };
-    }
-
-    // Step 2: Department classification from classifier (single source of truth)
-    const fastApiResult = await classifyDepartmentWithFastApi({
-        description: description.trim(),
-        category: geminiAnalysis.categories?.[0] || null,
-        isUrgent: geminiAnalysis.is_urgent === true,
-        trainNumber: finalTrainSchedule?.train_no || train_number || null
     });
+    const classifierPromise = classifyDepartmentWithFastApi(description.trim());
+    const [geminiAnalysis, fastApiResult] = await Promise.all([
+        geminiPromise,
+        classifierPromise
+    ]);
 
     // Calculate priority (Query schema expects this)
     const priority_percentage = calculatePriority(isTrainRunning, geminiAnalysis, description.trim());
