@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Path to stations.json (adjust if placed elsewhere)
-const stationsPath = path.join(__dirname, "../data/stations.json");
+const stationsPath = path.join(__dirname, "../../data/stations.json");
 
 // Cache stations data in memory
 let stationsCache = null;

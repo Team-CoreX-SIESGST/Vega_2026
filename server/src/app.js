@@ -8,7 +8,6 @@ import notificationRoute from "./controllers/notifications/notificationRoutes.js
 import stationRoutes from "./controllers/station/stationRoutes.js";
 import trainRoutes from "./controllers/train/trainRoutes.js";
 
-app.use("/api/trains", trainRoutes);
 const app = express();
 
 app.use(
