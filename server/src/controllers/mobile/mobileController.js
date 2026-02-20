@@ -1,7 +1,7 @@
 import { asyncHandler, sendResponse, uploadOnCloudinary } from "../../utils/index.js";
 import { getTrainByNumber, getTrainScheduleByNumber, getAllStationsForTrain } from "../train/trainController.js";
-import Complaint from "../../models/Complaint.js";
-import { analyzeWithGemini, checkTrainRunningStatus } from "../query/queryControllers.js";
+import Query from "../../models/Query.js";
+import { analyzeWithGemini, calculatePriority, checkTrainRunningStatus } from "../query/queryControllers.js";
 import axios from "axios";
 
 // GET /api/mobile/train/:trainNumber — validate train and return name + zone
@@ -36,54 +36,123 @@ export const getTrainStations = asyncHandler(async (req, res) => {
     return sendResponse(res, true, { stations }, "Train stations found", 200);
 });
 
-// POST /api/mobile/complaint — create complaint (optionally classify via NLP)
+// POST /api/mobile/complaint — create query (mobile complaint -> Query)
 export const createComplaint = asyncHandler(async (req, res) => {
-    const { trainNumber, complaintText } = req.body;
-    const userId = req.user._id;
+    const { train_number, station_code, description, complaintText, trainNumber, source } = req.body;
+    // support legacy keys from older mobile form: trainNumber + complaintText
+    const effectiveTrainNumber = train_number || trainNumber || null;
+    const effectiveStationCode = station_code || null;
+    const effectiveDescription = (description || complaintText || "").trim();
 
-    if (!complaintText || !complaintText.trim()) {
-        return sendResponse(res, false, null, "Complaint text is required", 400);
+    if (!effectiveDescription) {
+        return sendResponse(res, false, null, "Description is required", 400);
     }
 
-    let category = "General";
-    let severity = "Normal";
-    let assignedDepartment = "General";
-
-    const nlppyUrl = process.env.NLPPY_URL || process.env.NLP_URL;
-    if (nlppyUrl && complaintText.trim()) {
-        try {
-            const { data } = await axios.post(
-                `${nlppyUrl.replace(/\/$/, "")}/classify`,
-                { complaint_text: complaintText.trim(), train_number: trainNumber || null },
-                { timeout: 5000 }
+    // Reuse the same flow as /complaint-with-gemini but without images
+    let finalTrainSchedule = null;
+    if (effectiveTrainNumber) {
+        finalTrainSchedule = getTrainScheduleByNumber(effectiveTrainNumber, effectiveStationCode);
+        if (!finalTrainSchedule) {
+            return sendResponse(
+                res,
+                false,
+                null,
+                `Train schedule not found for train number: ${effectiveTrainNumber}`,
+                404
             );
-            if (data?.department) assignedDepartment = data.department;
-        } catch (err) {
-            console.warn("NLP classify failed, using defaults:", err?.message);
         }
     }
 
-    const complaint = await Complaint.create({
-        user: userId,
-        trainNumber: trainNumber || null,
-        complaintText: complaintText.trim(),
-        category,
-        severity,
-        assignedDepartment,
-        status: "Pending",
+    const isTrainRunning = finalTrainSchedule ? checkTrainRunningStatus(finalTrainSchedule) : false;
+
+    const geminiAnalysis = await analyzeWithGemini(
+        effectiveDescription,
+        [],
+        finalTrainSchedule || {},
+        isTrainRunning
+    );
+
+    const priority_percentage = calculatePriority(isTrainRunning, geminiAnalysis, effectiveDescription);
+
+    // FastAPI classifier (optional)
+    let fastApiResult = null;
+    const nlppyUrl = process.env.NLPPY_URL || process.env.NLP_URL;
+    if (nlppyUrl) {
+        try {
+            const { data } = await axios.post(
+                `${nlppyUrl.replace(/\/$/, "")}/classify`,
+                {
+                    complaint_text: effectiveDescription,
+                    category: geminiAnalysis.categories?.[0] || null,
+                    priority: geminiAnalysis.is_urgent ? "high" : "normal",
+                    train_number: finalTrainSchedule?.train_no || effectiveTrainNumber || null
+                },
+                { timeout: 10000 }
+            );
+            fastApiResult = data;
+        } catch (err) {
+            console.warn("FastAPI classify failed:", err?.message);
+            fastApiResult = {
+                department: geminiAnalysis.department || "General",
+                confidence: 0.5
+            };
+        }
+    } else {
+        fastApiResult = {
+            department: geminiAnalysis.department || "General",
+            confidence: 0.7
+        };
+    }
+
+    const query = await Query.create({
+        user_id: req.user._id,
+        source: source || "mobile",
+        train_number: finalTrainSchedule?.train_no || effectiveTrainNumber || null,
+        station_code: effectiveStationCode || finalTrainSchedule?.station_code || null,
+        train_details: finalTrainSchedule
+            ? {
+                  train_name: finalTrainSchedule.train_name,
+                  station_code: finalTrainSchedule.station_code,
+                  station_name: finalTrainSchedule.station_name,
+                  arrival_time: finalTrainSchedule.arrival_time,
+                  departure_time: finalTrainSchedule.departure_time,
+                  seq: finalTrainSchedule.seq,
+                  distance: finalTrainSchedule.distance,
+                  source_station: finalTrainSchedule.source_station,
+                  source_station_name: finalTrainSchedule.source_station_name,
+                  destination_station: finalTrainSchedule.destination_station,
+                  destination_station_name: finalTrainSchedule.destination_station_name
+              }
+            : undefined,
+        category: geminiAnalysis.categories,
+        priority_percentage,
+        description: effectiveDescription,
+        keywords: geminiAnalysis.keywords,
+        departments: [fastApiResult?.department || geminiAnalysis.department],
+        status: "received"
     });
 
-    const complaintData = complaint.toObject();
-    return sendResponse(res, true, { complaint: complaintData }, "Complaint submitted", 201);
+    return sendResponse(
+        res,
+        true,
+        {
+            query,
+            gemini_analysis: geminiAnalysis,
+            fastapi_classification: fastApiResult,
+            train_running: isTrainRunning
+        },
+        "Query created successfully",
+        201
+    );
 });
 
-// GET /api/mobile/complaints — list complaints for current user
+// GET /api/mobile/complaints — list mobile queries for current user (backwards-compatible route name)
 export const getComplaints = asyncHandler(async (req, res) => {
     const userId = req.user._id;
-    const complaints = await Complaint.find({ user: userId })
+    const queries = await Query.find({ user_id: userId })
         .sort({ createdAt: -1 })
         .lean();
-    return sendResponse(res, true, { complaints }, "Complaints retrieved", 200);
+    return sendResponse(res, true, { queries }, "Queries retrieved", 200);
 });
 
 // POST /api/mobile/complaint-with-gemini — create complaint with Gemini analysis and FastAPI classification
@@ -177,17 +246,50 @@ export const createComplaintWithGemini = asyncHandler(async (req, res) => {
         };
     }
 
-    // Return the analysis results
+    // Calculate priority (Query schema expects this)
+    const priority_percentage = calculatePriority(isTrainRunning, geminiAnalysis, description.trim());
+
+    // Persist into Query (mobile complaint == Query)
+    const query = await Query.create({
+        user_id: userId,
+        source: source || "mobile",
+        train_number: finalTrainSchedule?.train_no || train_number || null,
+        station_code: station_code || finalTrainSchedule?.station_code || null,
+        train_details: finalTrainSchedule
+            ? {
+                  train_name: finalTrainSchedule.train_name,
+                  station_code: finalTrainSchedule.station_code,
+                  station_name: finalTrainSchedule.station_name,
+                  arrival_time: finalTrainSchedule.arrival_time,
+                  departure_time: finalTrainSchedule.departure_time,
+                  seq: finalTrainSchedule.seq,
+                  distance: finalTrainSchedule.distance,
+                  source_station: finalTrainSchedule.source_station,
+                  source_station_name: finalTrainSchedule.source_station_name,
+                  destination_station: finalTrainSchedule.destination_station,
+                  destination_station_name: finalTrainSchedule.destination_station_name
+              }
+            : undefined,
+        category: geminiAnalysis.categories,
+        priority_percentage,
+        description: description.trim(),
+        keywords: geminiAnalysis.keywords,
+        departments: [fastApiResult?.department || geminiAnalysis.department],
+        status: "received"
+    });
+
+    // Return the analysis results + stored query
     return sendResponse(
         res,
         true,
         {
+            query,
             gemini_analysis: geminiAnalysis,
             fastapi_classification: fastApiResult,
             train_running: isTrainRunning,
             images: imageUrls
         },
-        "Complaint analyzed successfully",
-        200
+        "Query created successfully",
+        201
     );
 });

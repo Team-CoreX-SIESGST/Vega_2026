@@ -55,7 +55,7 @@ export const analyzeWithGemini = async (description, imageUrls, trainSchedule, i
 
         // Add text prompt
         const prompt = `
-You are a railway complaint analysis system. Analyze the following passenger query and provide structured JSON output.
+You are a railway complaint analysis system. Analyze the following passenger query and provide structured JSON output with accurate priority scoring.
 
 Current Time: ${currentTime}
 
@@ -74,20 +74,45 @@ Is Train Currently Running: ${isTrainRunning ? "YES" : "NO"}
 
 User Description: "${description}"
 
-Instructions for Priority Analysis:
-- If train is RUNNING and issue is urgent (medical, security, safety, harassment, accident), priority should be HIGH (80-100)
-- If train is RUNNING and issue is moderate (cleanliness, food quality, AC not working), priority should be MEDIUM-HIGH (60-80)
-- If train is NOT RUNNING, only assign HIGH priority (70-100) if CRITICAL (safety, security, medical emergency, accident, harassment)
-- If train is NOT RUNNING and issue is routine (booking, refund, inquiry), priority should be LOW-MEDIUM (20-50)
+CRITICAL PRIORITY SCORING GUIDELINES (0-100 scale):
+
+TRAIN IS RUNNING:
+- 90-100: Life-threatening emergencies (heart attack, severe bleeding, unconscious person, fire, major accident, active assault/harassment requiring immediate intervention)
+- 80-89: Serious safety/security issues (theft, weapon threat, drunk/violent passenger, medical emergency needing attention, security threat)
+- 70-79: Important but not life-threatening (AC not working in hot weather, broken toilet, food poisoning symptoms, harassment complaint)
+- 60-69: Moderate inconvenience (dirty coach, poor food quality, delayed service, minor technical issues)
+- 50-59: Low-moderate issues (noise complaint, seat issues, general cleanliness)
+- 30-49: Minor complaints (preference issues, general feedback)
+
+TRAIN IS NOT RUNNING:
+- 85-95: Critical safety/security issues that need immediate attention even if train not running (reported crime, safety hazard, security threat)
+- 70-84: Serious issues requiring prompt response (medical emergency, harassment report, theft report)
+- 50-69: Important issues (booking problems, refund requests, schedule inquiries)
+- 30-49: Routine inquiries (general information, feedback, non-urgent complaints)
+- 10-29: Low priority (general questions, suggestions)
+
+IMPORTANT: 
+- Be STRICT with high priorities (90+). Only use for genuine emergencies.
+- Most routine complaints should be 30-60 range.
+- Consider the actual severity, not just keywords.
+- If unsure, err on the side of lower priority.
 
 Respond with a valid JSON object with the following structure:
 {
   "categories": ["category1", "category2"],
   "keywords": ["keyword1", "keyword2", "keyword3"],
   "department": "department_name",
-  "priority_analysis": "explanation",
+  "priority_score": 0-100,
+  "priority_analysis": "brief explanation of why this priority score was assigned",
   "is_urgent": true/false
 }
+
+Example outputs:
+- "Medical emergency, passenger unconscious" → priority_score: 95, is_urgent: true
+- "AC not working, very hot" → priority_score: 72, is_urgent: false
+- "Dirty toilet" → priority_score: 58, is_urgent: false
+- "Want refund for cancelled ticket" → priority_score: 45, is_urgent: false
+- "General inquiry about schedule" → priority_score: 25, is_urgent: false
 `;
 
         parts.push({ text: prompt });
@@ -109,7 +134,33 @@ Respond with a valid JSON object with the following structure:
         const text = response.text();
         
         // Parse the JSON response
-        const parsed = JSON.parse(text);
+        let parsed;
+        try {
+            parsed = JSON.parse(text);
+        } catch (parseError) {
+            // Try to extract JSON from markdown code blocks if present
+            const jsonMatch = text.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+            if (jsonMatch) {
+                parsed = JSON.parse(jsonMatch[1]);
+            } else {
+                throw parseError;
+            }
+        }
+        
+        // Validate priority_score if present
+        if (parsed.priority_score !== undefined) {
+            const score = Number(parsed.priority_score);
+            if (isNaN(score) || score < 0 || score > 100) {
+                console.warn(`Invalid priority_score from Gemini: ${parsed.priority_score}, will use calculation`);
+                delete parsed.priority_score;
+            } else {
+                parsed.priority_score = Math.round(score);
+                console.log(`Gemini provided priority_score: ${parsed.priority_score} for description: "${description.substring(0, 50)}..."`);
+            }
+        } else {
+            console.log(`Gemini did not provide priority_score, will use calculation for: "${description.substring(0, 50)}..."`);
+        }
+        
         return parsed;
     } catch (error) {
         console.error("Gemini analysis failed:", error);
@@ -123,66 +174,48 @@ Respond with a valid JSON object with the following structure:
     }
 };
 
-// Example usage
-async function main() {
-    const trainSchedule = {
-        train_no: "12345",
-        train_name: "Rajdhani Express",
-        station_name: "New Delhi",
-        station_code: "NDLS",
-        arrival_time: "16:00",
-        departure_time: "16:30",
-        source_station_name: "Mumbai Central",
-        source_station: "MMCT",
-        destination_station_name: "New Delhi",
-        destination_station: "NDLS",
-        distance: "1384",
-        seq: "5"
-    };
-
-    const result = await analyzeWithGemini(
-        "AC not working in coach B2, temperature is very high",
-        [], // imageUrls
-        trainSchedule,
-        true // isTrainRunning
-    );
-
-    console.log(result);
-}
-
-main();
-
 // Calculate Priority Percentage
-const calculatePriority = (isTrainRunning, geminiAnalysis, description) => {
+// Uses Gemini's priority_score if available, otherwise falls back to calculation
+export const calculatePriority = (isTrainRunning, geminiAnalysis, description) => {
+    // If Gemini provided a priority_score, use it (with validation)
+    if (geminiAnalysis.priority_score !== undefined && geminiAnalysis.priority_score !== null) {
+        const geminiPriority = Number(geminiAnalysis.priority_score);
+        // Validate and use Gemini's score if reasonable
+        if (!isNaN(geminiPriority) && geminiPriority >= 0 && geminiPriority <= 100) {
+            const finalPriority = Math.round(geminiPriority);
+            console.log(`Using Gemini priority_score: ${finalPriority} (train running: ${isTrainRunning})`);
+            return finalPriority;
+        } else {
+            console.warn(`Invalid Gemini priority_score: ${geminiAnalysis.priority_score}, falling back to calculation`);
+        }
+    } else {
+        console.log(`No Gemini priority_score, calculating priority (train running: ${isTrainRunning})`);
+    }
+
+    // Fallback calculation if Gemini didn't provide priority_score
     let basePriority = 50;
 
     // Keywords indicating high urgency
     const urgentKeywords = [
-        "medical",
-        "emergency",
+        "medical emergency",
+        "unconscious",
+        "heart attack",
+        "bleeding",
+        "dying",
         "accident",
         "fire",
-        "theft",
         "assault",
-        "injury",
-        "bleeding",
-        "unconscious",
-        "heart",
-        "attack",
-        "police",
-        "harassment",
-        "molestation",
-        "dying"
+        "molestation"
     ];
     const highKeywords = [
+        "theft",
         "security",
         "safety",
         "fight",
         "dangerous",
         "weapon",
-        "drunk",
-        "smoking",
-        "chain pulling"
+        "harassment",
+        "police"
     ];
     const mediumKeywords = [
         "cleanliness",
@@ -192,42 +225,68 @@ const calculatePriority = (isTrainRunning, geminiAnalysis, description) => {
         "catering",
         "ac",
         "water",
-        "cooling"
+        "cooling",
+        "broken"
+    ];
+    const lowKeywords = [
+        "inquiry",
+        "question",
+        "information",
+        "refund",
+        "booking",
+        "schedule",
+        "general"
     ];
 
     const descLower = description.toLowerCase();
-    const hasUrgent = urgentKeywords.some((k) => descLower.includes(k));
-    const hasHigh = highKeywords.some((k) => descLower.includes(k));
-    const hasMedium = mediumKeywords.some((k) => descLower.includes(k));
+    
+    // Check for exact phrase matches first (more accurate)
+    const hasUrgent = urgentKeywords.some((k) => descLower.includes(k.toLowerCase()));
+    const hasHigh = highKeywords.some((k) => descLower.includes(k.toLowerCase()));
+    const hasMedium = mediumKeywords.some((k) => descLower.includes(k.toLowerCase()));
+    const hasLow = lowKeywords.some((k) => descLower.includes(k.toLowerCase()));
 
     // Check if Gemini marked it as urgent
     const geminiUrgent = geminiAnalysis.is_urgent === true;
 
     if (isTrainRunning) {
         // Train is running - higher base priority
-        basePriority = 70;
-
-        if (hasUrgent || geminiUrgent) basePriority = 95;
-        else if (hasHigh) basePriority = 85;
-        else if (geminiAnalysis.categories.includes("medical")) basePriority = 90;
-        else if (geminiAnalysis.categories.includes("security")) basePriority = 85;
-        else if (hasMedium) basePriority = 75;
-        else basePriority = 70;
+        if (hasUrgent || geminiUrgent) {
+            basePriority = 90; // Life-threatening emergencies
+        } else if (hasHigh) {
+            basePriority = 80; // Serious safety/security
+        } else if (geminiAnalysis.categories?.includes("medical")) {
+            basePriority = 85;
+        } else if (geminiAnalysis.categories?.includes("security")) {
+            basePriority = 80;
+        } else if (hasMedium) {
+            basePriority = 65; // Moderate inconvenience
+        } else if (hasLow) {
+            basePriority = 40; // Low priority
+        } else {
+            basePriority = 55; // Default moderate
+        }
     } else {
-        // Train not running - only high if critical
-        if (hasUrgent || geminiUrgent) basePriority = 85;
-        else if (hasHigh) basePriority = 75;
-        else if (
-            geminiAnalysis.categories.includes("medical") ||
-            geminiAnalysis.categories.includes("security")
-        )
-            basePriority = 70;
-        else if (hasMedium) basePriority = 50;
-        else basePriority = 30; // Lower priority for non-running trains with routine issues
+        // Train not running - lower base priority
+        if (hasUrgent || geminiUrgent) {
+            basePriority = 85; // Critical even if train not running
+        } else if (hasHigh) {
+            basePriority = 70; // Serious but train not running
+        } else if (geminiAnalysis.categories?.includes("medical") || geminiAnalysis.categories?.includes("security")) {
+            basePriority = 65;
+        } else if (hasMedium) {
+            basePriority = 45; // Moderate
+        } else if (hasLow) {
+            basePriority = 25; // Low priority
+        } else {
+            basePriority = 35; // Default low-moderate
+        }
     }
 
     // Cap at 100
-    return Math.min(100, Math.max(0, basePriority));
+    const finalPriority = Math.min(100, Math.max(0, basePriority));
+    console.log(`Calculated priority: ${finalPriority} (train running: ${isTrainRunning}, description: "${description.substring(0, 50)}...")`);
+    return finalPriority;
 };
 
 // Create Query

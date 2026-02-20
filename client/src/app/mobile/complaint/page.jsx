@@ -5,7 +5,7 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import { apiClient } from '../../../utils/api_client';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { CheckCircle, Train, AlertCircle, ArrowLeft, Image as ImageIcon, X } from 'lucide-react';
+import { CheckCircle, Train, AlertCircle, ArrowLeft, Image as ImageIcon, X, List } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ComplaintPage() {
@@ -225,6 +225,48 @@ export default function ComplaintPage() {
                         Images uploaded: {result.images.length}
                       </p>
                     )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                    <Link href="/mobile/issues" className="flex-1">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all"
+                        style={{
+                          backgroundColor: '#4E4E94',
+                          color: '#fff',
+                          boxShadow: '0 4px 20px rgba(78,78,148,0.25)',
+                        }}
+                      >
+                        <List size={16} />
+                        View My Issues
+                      </motion.button>
+                    </Link>
+                    <motion.button
+                      onClick={() => {
+                        setResult(null);
+                        setTrainNumber('');
+                        setComplaintText('');
+                        setTrainSchedule(null);
+                        setTrainStations([]);
+                        setSelectedStationCode('');
+                        setTrainInfo(null);
+                        setImages([]);
+                        setError('');
+                      }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex-1 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all border"
+                      style={{
+                        borderColor: 'rgba(78,78,148,0.3)',
+                        backgroundColor: '#fff',
+                        color: '#4E4E94',
+                      }}
+                    >
+                      Submit Another
+                    </motion.button>
                   </div>
                 </div>
               </div>

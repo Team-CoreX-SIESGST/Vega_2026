@@ -5,52 +5,95 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import { apiClient } from '../../../utils/api_client';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Plus, Clock, CheckCircle, AlertCircle, Train, Calendar } from 'lucide-react';
+import { Plus, Clock, CheckCircle, AlertCircle, Train, Calendar, XCircle, Loader2, Ban } from 'lucide-react';
 import { ArrowLeft } from 'lucide-react';
 
 export default function IssuesPage() {
   const { user } = useAuth();
-  const [complaints, setComplaints] = useState([]);
+  const [queries, setQueries] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchComplaints();
+    fetchQueries();
   }, []);
 
-  const fetchComplaints = async () => {
+  const fetchQueries = async () => {
     try {
       const res = await apiClient.get('/mobile/complaints');
       const payload = res.data?.data;
-      setComplaints(Array.isArray(payload?.complaints) ? payload.complaints : []);
+      // API now returns { queries } instead of { complaints }
+      setQueries(Array.isArray(payload?.queries) ? payload.queries : []);
     } catch (error) {
-      console.error('Failed to fetch complaints', error);
+      console.error('Failed to fetch queries', error);
     } finally {
       setLoading(false);
     }
   };
 
+  // Map Query statuses to display config
   const statusConfig = {
-    Pending: {
+    received: {
       bg: 'rgba(234,179,8,0.1)',
       text: '#CA8A04',
       icon: Clock,
+      label: 'Received',
     },
-    'In Progress': {
+    assigned: {
       bg: 'rgba(59,130,246,0.1)',
       text: '#2563EB',
       icon: AlertCircle,
+      label: 'Assigned',
     },
-    Resolved: {
+    working_on: {
+      bg: 'rgba(59,130,246,0.1)',
+      text: '#2563EB',
+      icon: Loader2,
+      label: 'Working On',
+    },
+    hold: {
+      bg: 'rgba(249,115,22,0.1)',
+      text: '#EA580C',
+      icon: Clock,
+      label: 'On Hold',
+    },
+    pending_info: {
+      bg: 'rgba(234,179,8,0.1)',
+      text: '#CA8A04',
+      icon: AlertCircle,
+      label: 'Pending Info',
+    },
+    escalated: {
+      bg: 'rgba(239,68,68,0.1)',
+      text: '#DC2626',
+      icon: AlertCircle,
+      label: 'Escalated',
+    },
+    resolved: {
       bg: 'rgba(34,197,94,0.1)',
       text: '#16A34A',
       icon: CheckCircle,
+      label: 'Resolved',
+    },
+    closed: {
+      bg: 'rgba(34,197,94,0.1)',
+      text: '#16A34A',
+      icon: CheckCircle,
+      label: 'Closed',
+    },
+    rejected: {
+      bg: 'rgba(107,114,128,0.1)',
+      text: '#6B7280',
+      icon: XCircle,
+      label: 'Rejected',
     },
   };
 
-  const severityColors = {
-    Critical: { bg: 'rgba(239,68,68,0.1)', text: '#DC2626' },
-    High: { bg: 'rgba(249,115,22,0.1)', text: '#EA580C' },
-    Normal: { bg: 'rgba(78,78,148,0.1)', text: '#4E4E94' },
+  // Priority percentage to severity mapping
+  const getPriorityLabel = (priority) => {
+    if (priority >= 80) return { label: 'Critical', color: { bg: 'rgba(239,68,68,0.1)', text: '#DC2626' } };
+    if (priority >= 60) return { label: 'High', color: { bg: 'rgba(249,115,22,0.1)', text: '#EA580C' } };
+    if (priority >= 40) return { label: 'Medium', color: { bg: 'rgba(234,179,8,0.1)', text: '#CA8A04' } };
+    return { label: 'Low', color: { bg: 'rgba(78,78,148,0.1)', text: '#4E4E94' } };
   };
 
   return (
@@ -90,7 +133,7 @@ export default function IssuesPage() {
             <div className="flex items-center justify-center py-20">
               <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" style={{ borderColor: '#4E4E94', borderTopColor: 'transparent' }} />
             </div>
-          ) : complaints.length === 0 ? (
+          ) : queries.length === 0 ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -100,7 +143,7 @@ export default function IssuesPage() {
                 <AlertCircle size={32} style={{ color: '#4E4E94' }} />
               </div>
               <h2 className="font-outfit text-xl font-semibold mb-2" style={{ color: '#1A1A2E' }}>
-                No complaints yet
+                No issues yet
               </h2>
               <p className="text-sm mb-6" style={{ color: '#4A4A6A' }}>
                 Start by logging your first complaint
@@ -122,14 +165,16 @@ export default function IssuesPage() {
             </motion.div>
           ) : (
             <div className="space-y-4">
-              {complaints.map((c, index) => {
-                const status = statusConfig[c.status] || statusConfig.Pending;
+              {queries.map((query, index) => {
+                const status = statusConfig[query.status] || statusConfig.received;
                 const StatusIcon = status.icon;
-                const severity = severityColors[c.severity] || severityColors.Normal;
+                const priorityInfo = getPriorityLabel(query.priority_percentage || 0);
+                const category = Array.isArray(query.category) ? query.category[0] : query.category || 'General';
+                const department = Array.isArray(query.departments) ? query.departments[0] : query.departments || 'General';
 
                 return (
                   <motion.div
-                    key={c._id}
+                    key={query._id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
@@ -141,7 +186,7 @@ export default function IssuesPage() {
                         <div className="flex items-center gap-2 mb-2">
                           <Calendar size={14} style={{ color: '#4A4A6A' }} />
                           <span className="text-xs" style={{ color: '#4A4A6A' }}>
-                            {new Date(c.createdAt).toLocaleDateString('en-US', {
+                            {new Date(query.createdAt).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                               year: 'numeric',
@@ -149,16 +194,17 @@ export default function IssuesPage() {
                           </span>
                         </div>
                         <h3 className="font-outfit font-semibold text-lg mb-1.5" style={{ color: '#1A1A2E' }}>
-                          {c.category}
+                          {category}
                         </h3>
                         <p className="text-sm leading-relaxed line-clamp-2" style={{ color: '#4A4A6A' }}>
-                          {c.complaintText}
+                          {query.description}
                         </p>
-                        {c.trainNumber && (
+                        {(query.train_number || query.train_details?.train_name) && (
                           <div className="flex items-center gap-1.5 mt-2">
                             <Train size={14} style={{ color: '#4A4A6A' }} />
                             <span className="text-xs" style={{ color: '#4A4A6A' }}>
-                              Train: {c.trainNumber}
+                              {query.train_details?.train_name || `Train: ${query.train_number}`}
+                              {query.train_details?.station_name && ` - ${query.train_details.station_name}`}
                             </span>
                           </div>
                         )}
@@ -171,8 +217,8 @@ export default function IssuesPage() {
                             color: status.text,
                           }}
                         >
-                          <StatusIcon size={12} />
-                          {c.status}
+                          <StatusIcon size={12} className={query.status === 'working_on' ? 'animate-spin' : ''} />
+                          {status.label}
                         </div>
                       </div>
                     </div>
@@ -182,11 +228,11 @@ export default function IssuesPage() {
                       <span
                         className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium"
                         style={{
-                          backgroundColor: severity.bg,
-                          color: severity.text,
+                          backgroundColor: priorityInfo.color.bg,
+                          color: priorityInfo.color.text,
                         }}
                       >
-                        Severity: {c.severity}
+                        Priority: {priorityInfo.label} ({query.priority_percentage || 0}%)
                       </span>
                       <span
                         className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium"
@@ -195,8 +241,20 @@ export default function IssuesPage() {
                           color: '#4E4E94',
                         }}
                       >
-                        Dept: {c.assignedDepartment}
+                        Dept: {department}
                       </span>
+                      {query.keywords && query.keywords.length > 0 && (
+                        <span
+                          className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium"
+                          style={{
+                            backgroundColor: 'rgba(78,78,148,0.05)',
+                            color: '#4A4A6A',
+                          }}
+                        >
+                          {query.keywords.slice(0, 3).join(', ')}
+                          {query.keywords.length > 3 && '...'}
+                        </span>
+                      )}
                     </div>
                   </motion.div>
                 );

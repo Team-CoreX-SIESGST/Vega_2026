@@ -4,10 +4,12 @@ import { useAuth } from '../../../contexts/AuthContext';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { apiClient } from '../../../utils/api_client';
 import { motion } from 'framer-motion';
-import { CheckCircle, AlertCircle, Image as ImageIcon, X, Loader2, Train, User, Brain, Database, ArrowRight } from 'lucide-react';
+import { CheckCircle, AlertCircle, Image as ImageIcon, X, Loader2, Train, User, Brain, Database, ArrowRight, List } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function TestComplaintPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [trainNumber, setTrainNumber] = useState('107');
   const [complaintText, setComplaintText] = useState('AC not working in coach B2, temperature is very high and passengers are uncomfortable.');
   const [trainSchedule, setTrainSchedule] = useState(null);
@@ -419,21 +421,44 @@ export default function TestComplaintPage() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => {
-                      setResult(null);
-                      setWorkflowSteps({
-                        user_input: { status: 'pending', message: 'Waiting for user input...' },
-                        gemini_analysis: { status: 'pending', message: 'Pending...' },
-                        nlp_classification: { status: 'pending', message: 'Pending...' },
-                        output: { status: 'pending', message: 'Pending...' }
-                      });
-                    }}
-                    className="mt-6 px-4 py-2 rounded-lg font-medium text-sm transition-all"
-                    style={{ backgroundColor: '#4E4E94', color: '#fff' }}
-                  >
-                    Test Again
-                  </button>
+                  {/* Action Buttons */}
+                  <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                    <motion.button
+                      onClick={() => router.push('/mobile/issues')}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all"
+                      style={{
+                        backgroundColor: '#4E4E94',
+                        color: '#fff',
+                        boxShadow: '0 4px 20px rgba(78,78,148,0.25)',
+                      }}
+                    >
+                      <List size={16} />
+                      View My Issues
+                    </motion.button>
+                    <motion.button
+                      onClick={() => {
+                        setResult(null);
+                        setWorkflowSteps({
+                          user_input: { status: 'pending', message: 'Waiting for user input...' },
+                          gemini_analysis: { status: 'pending', message: 'Pending...' },
+                          nlp_classification: { status: 'pending', message: 'Pending...' },
+                          output: { status: 'pending', message: 'Pending...' }
+                        });
+                      }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex-1 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all border"
+                      style={{
+                        borderColor: 'rgba(78,78,148,0.3)',
+                        backgroundColor: '#fff',
+                        color: '#4E4E94',
+                      }}
+                    >
+                      Test Again
+                    </motion.button>
+                  </div>
                 </div>
               </div>
             </motion.div>
