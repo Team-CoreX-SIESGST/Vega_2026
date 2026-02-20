@@ -4,455 +4,136 @@
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    /* RailMind Design System */
+    --background: 0 0% 100%;
+    --foreground: 233 47% 14%;
 
-    --card: 240 10% 6%;
-    --card-foreground: 0 0% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 233 47% 14%;
 
-    --popover: 240 10% 6%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 233 47% 14%;
 
-    --primary: 252 87% 59%;
+    /* Primary: #4E4E94 */
+    --primary: 240 31% 44%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 10% 12%;
-    --secondary-foreground: 0 0% 98%;
+    /* Secondary: light lavender */
+    --secondary: 240 100% 98%;
+    --secondary-foreground: 240 31% 44%;
 
-    --muted: 240 10% 15%;
-    --muted-foreground: 240 5% 64.9%;
+    --muted: 240 20% 96%;
+    --muted-foreground: 240 20% 45%;
 
-    --accent: 252 87% 59%;
+    --accent: 240 31% 44%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 240 10% 20%;
-    --input: 240 10% 20%;
-    --ring: 252 87% 59%;
+    --border: 240 31% 44%;
+    --input: 240 20% 90%;
+    --ring: 240 31% 44%;
 
     --radius: 0.75rem;
 
     /* Custom tokens */
-    --glow-primary: 252 87% 59%;
-    --glow-secondary: 217 91% 60%;
-    --glass-bg: 240 10% 8% / 0.6;
-    --glass-border: 0 0% 100% / 0.1;
-    --gradient-start: 252 87% 59%;
-    --gradient-end: 217 91% 60%;
-  }
+    --heading-color: 233 47% 14%;
+    --body-color: 240 20% 35%;
+    --section-lavender: 240 100% 98%;
+    --primary-glow: 240 31% 55%;
+    --primary-subtle: 240 31% 44%;
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-
-    --card: 240 10% 6%;
-    --card-foreground: 0 0% 98%;
-
-    --popover: 240 10% 6%;
-    --popover-foreground: 0 0% 98%;
-
-    --primary: 252 87% 59%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 240 10% 12%;
-    --secondary-foreground: 0 0% 98%;
-
-    --muted: 240 10% 15%;
-    --muted-foreground: 240 5% 64.9%;
-
-    --accent: 252 87% 59%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 240 10% 20%;
-    --input: 240 10% 20%;
-    --ring: 252 87% 59%;
+    /* Sidebar */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 
 @layer base {
   * {
-    border-color: hsl(var(--border));
+    @apply border-border;
   }
 
   html {
-    color-scheme: dark;
+    scroll-behavior: smooth;
   }
 
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
+    @apply bg-background text-foreground;
+    font-family: var(--font-body), 'Inter', sans-serif;
+    color: hsl(var(--body-color));
   }
 
-  /* Custom Scrollbar Styles */
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: hsl(var(--background));
-    border-radius: 4px;
-  }
-
-  ::-webkit-scrollbar-track-piece {
-    background: hsl(var(--muted));
-    border-radius: 4px;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: linear-gradient(
-      135deg,
-      hsl(var(--primary)) 0%,
-      hsl(var(--glow-secondary)) 100%
-    );
-    border-radius: 4px;
-    border: 2px solid hsl(var(--background));
-    transition: all 0.3s ease;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(
-      135deg,
-      hsl(252, 87%, 65%) 0%,
-      hsl(217, 91%, 65%) 100%
-    );
-    box-shadow: 0 0 10px hsl(var(--primary) / 0.5);
-  }
-
-  ::-webkit-scrollbar-corner {
-    background: hsl(var(--background));
-  }
-
-  /* For Firefox */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--primary)) hsl(var(--background));
-  }
-
-  /* Scrollbar for specific components */
-  .scrollbar-thin {
-    scrollbar-width: thin;
-  }
-
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  .scrollbar-glass {
-    scrollbar-color: hsl(var(--primary) / 0.7) transparent;
-  }
-
-  .scrollbar-glass::-webkit-scrollbar-track {
-    background: transparent;
-    backdrop-filter: blur(10px);
-  }
-
-  .scrollbar-glass::-webkit-scrollbar-thumb {
-    background: hsl(var(--primary) / 0.7);
-    border-radius: 4px;
-    border: 1px solid hsl(var(--border) / 0.3);
-    backdrop-filter: blur(10px);
-  }
-
-  .scrollbar-glass::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--primary));
-    border-color: hsl(var(--primary));
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display), 'Outfit', sans-serif;
+    color: hsl(var(--heading-color));
   }
 }
 
 @layer components {
-  .glass-card {
-    background-color: hsl(var(--card) / 0.6);
-    -webkit-backdrop-filter: blur(24px);
-    backdrop-filter: blur(24px);
-    border-radius: 1rem;
-    border: 1px solid hsl(var(--border) / 0.3);
-    box-shadow: 0 8px 32px 0 hsl(var(--primary) / 0.08),
-      inset 0 1px 0 0 hsl(0 0% 100% / 0.05);
+  .section-white {
+    @apply bg-white;
   }
 
-  .glass-card-hover {
-    background-color: hsl(var(--card) / 0.6);
-    -webkit-backdrop-filter: blur(24px);
-    backdrop-filter: blur(24px);
-    border-radius: 1rem;
-    border: 1px solid hsl(var(--border) / 0.3);
-    box-shadow: 0 8px 32px 0 hsl(var(--primary) / 0.08),
-      inset 0 1px 0 0 hsl(0 0% 100% / 0.05);
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  .section-lavender {
+    background-color: hsl(var(--section-lavender));
   }
 
-  .glass-card-hover:hover {
-    border-color: hsl(var(--primary) / 0.3);
-    box-shadow: 0 16px 48px 0 hsl(var(--primary) / 0.15),
-      0 0 30px 0 hsl(var(--primary) / 0.1), inset 0 1px 0 0 hsl(0 0% 100% / 0.1);
-    transform: translateY(-4px);
+  .railmind-card {
+    @apply bg-white rounded-2xl p-6 shadow-sm border transition-all duration-300;
+    border-color: hsl(var(--primary) / 0.15);
   }
 
-  .gradient-text {
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    background-image: linear-gradient(
-      135deg,
-      hsl(var(--primary)) 0%,
-      hsl(var(--glow-secondary)) 50%,
-      hsl(var(--primary)) 100%
-    );
+  .railmind-card:hover {
+    @apply shadow-md;
+    border-color: hsl(var(--primary) / 0.4);
   }
 
-  .glow-primary {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.4),
-      0 0 40px hsl(var(--primary) / 0.2), 0 0 60px hsl(var(--primary) / 0.1);
-  }
-
-  .glow-border {
-    position: relative;
-  }
-
-  .glow-border::before {
-    content: "";
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(
-      135deg,
-      hsl(var(--primary) / 0.5),
-      hsl(var(--glow-secondary) / 0.5),
-      hsl(var(--primary) / 0.5)
-    );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-  }
-
-  .btn-primary-glow {
-    position: relative;
-    background-color: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-    font-weight: 600;
-    padding-inline: 2rem;
-    padding-block: 1rem;
-    border-radius: 0.75rem;
-    transition-property: all;
-    transition-duration: 300ms;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 20px hsl(var(--primary) / 0.4),
-      0 0 40px hsl(var(--primary) / 0.2);
-  }
-
-  .btn-primary-glow:hover {
-    transform: scale(1.05);
-    box-shadow: 0 8px 30px hsl(var(--primary) / 0.5),
-      0 0 60px hsl(var(--primary) / 0.3);
-  }
-
-  .btn-outline-glow {
-    position: relative;
-    border-width: 2px;
-    border-style: solid;
-    border-color: hsl(var(--primary) / 0.5);
-    color: hsl(var(--foreground));
-    font-weight: 600;
-    padding-inline: 2rem;
-    padding-block: 1rem;
-    border-radius: 0.75rem;
-    transition-property: all;
-    transition-duration: 300ms;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-    background-color: transparent;
-  }
-
-  .btn-outline-glow:hover {
-    border-color: hsl(var(--primary));
+  .badge-tech {
     background-color: hsl(var(--primary) / 0.1);
-    box-shadow: 0 0 30px hsl(var(--primary) / 0.2);
+    color: hsl(var(--primary));
+    border-color: hsl(var(--primary) / 0.2);
+    @apply px-4 py-2 rounded-full font-mono text-sm border;
   }
 
-  .stat-number {
-    font-size: 3rem; /* text-5xl */
-    line-height: 1;
-    font-weight: 700;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    background-image: linear-gradient(
-      135deg,
-      hsl(var(--primary)) 0%,
-      hsl(var(--glow-secondary)) 50%,
-      hsl(var(--primary)) 100%
-    );
+  .stat-card {
+    @apply bg-white rounded-2xl p-6 shadow-sm text-center border;
+    border-color: hsl(var(--primary) / 0.15);
   }
 
-  .section-title {
-    font-size: 1.875rem; /* text-3xl */
-    line-height: 2.25rem;
-    font-weight: 700;
-    color: hsl(var(--foreground));
+  .pain-card {
+    @apply bg-white rounded-xl p-5 shadow-sm border-l-4;
+    border-left-color: hsl(var(--primary));
+    border-top-color: hsl(var(--primary) / 0.1);
+    border-right-color: hsl(var(--primary) / 0.1);
+    border-bottom-color: hsl(var(--primary) / 0.1);
   }
 
-  .section-subtitle {
-    font-size: 1.125rem; /* text-lg */
-    line-height: 1.75rem;
-    color: hsl(var(--muted-foreground));
-    max-width: 42rem; /* max-w-2xl */
+  .category-pill {
+    background-color: hsl(var(--primary) / 0.08);
+    color: hsl(var(--primary));
+    border-color: hsl(var(--primary) / 0.2);
+    @apply px-5 py-2.5 rounded-full border font-medium text-sm transition-all duration-200;
   }
 
-  @media (min-width: 768px) {
-    .stat-number {
-      font-size: 3.75rem; /* md:text-6xl */
-      line-height: 1;
-    }
-
-    .section-title {
-      font-size: 2.25rem; /* md:text-4xl */
-      line-height: 2.5rem;
-    }
-
-    .section-subtitle {
-      font-size: 1.25rem; /* md:text-xl */
-      line-height: 1.75rem;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .section-title {
-      font-size: 3rem; /* lg:text-5xl */
-      line-height: 1;
-    }
+  .category-pill:hover {
+    background-color: hsl(var(--primary) / 0.15);
   }
 }
 
-@layer utilities {
-  .animate-float {
-    animation: float 6s ease-in-out infinite;
-  }
+/* Count-up animation */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-  .animate-pulse-glow {
-    animation: pulse-glow 3s ease-in-out infinite;
-  }
-
-  @keyframes float {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-10px);
-    }
-  }
-
-  @keyframes pulse-glow {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.7;
-    }
-  }
-
-  .delay-100 {
-    animation-delay: 100ms;
-  }
-  .delay-200 {
-    animation-delay: 200ms;
-  }
-  .delay-300 {
-    animation-delay: 300ms;
-  }
-  .delay-400 {
-    animation-delay: 400ms;
-  }
-  .delay-500 {
-    animation-delay: 500ms;
-  }
-
-  /* Add to your global styles */
-  .rdp {
-    --rdp-cell-size: 36px;
-    --rdp-accent-color: hsl(var(--primary));
-    --rdp-background-color: hsl(var(--accent));
-    margin: 0;
-  }
-
-  .rdp-day_selected,
-  .rdp-day_selected:focus-visible,
-  .rdp-day_selected:hover {
-    background-color: var(--rdp-accent-color);
-    color: white;
-  }
-
-  .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
-    background-color: hsl(var(--secondary));
-  }
-  /* Custom styles for react-datepicker */
-  .react-datepicker {
-    font-family: inherit;
-    border: 1px solid hsl(var(--border));
-    border-radius: 0.5rem;
-    background-color: hsl(var(--card));
-  }
-
-  .react-datepicker__header {
-    background-color: hsl(var(--card));
-    border-bottom: 1px solid hsl(var(--border));
-    padding-top: 0.5rem;
-  }
-
-  .react-datepicker__current-month {
-    font-weight: 600;
-    color: hsl(var(--foreground));
-  }
-
-  .react-datepicker__day-name {
-    color: hsl(var(--muted-foreground));
-  }
-
-  .react-datepicker__day {
-    color: hsl(var(--foreground));
-  }
-
-  .react-datepicker__day:hover {
-    background-color: hsl(var(--secondary));
-    color: hsl(var(--foreground));
-  }
-
-  .react-datepicker__day--selected,
-  .react-datepicker__day--in-selecting-range,
-  .react-datepicker__day--in-range {
-    background-color: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-  }
-
-  .react-datepicker__day--keyboard-selected {
-    background-color: hsl(var(--primary) / 0.5);
-  }
-
-  .react-datepicker__day--outside-month {
-    color: hsl(var(--muted-foreground));
-  }
-
-  .react-datepicker__day--disabled {
-    color: hsl(var(--muted-foreground) / 0.5);
-  }
-
-  .react-datepicker__navigation-icon::before {
-    border-color: hsl(var(--muted-foreground));
-  }
-
-  .react-datepicker__navigation:hover *::before {
-    border-color: hsl(var(--foreground));
-  }
+.count-animate {
+  animation: countUp 0.6s ease-out forwards;
 }
