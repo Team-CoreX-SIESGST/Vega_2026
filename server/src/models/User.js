@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
     {
-        fullName: {
+        name: {
             type: String,
             required: true,
             trim: true
@@ -18,44 +18,23 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: true
         },
-        organization: {
+        station: {
             type: String,
             default: null
-        },
-        teamSize: {
-            type: String,
-            default: null
-        },
-        phone: {
-            type: String,
-            default: null
-        },
-        isVerified: {
-            type: Boolean,
-            default: true // For simplicity in hackathon, skip email verification
         },
         role: {
             type: String,
-            enum: ["admin", "user", "manager"],
+            enum: ["admin", "super admin", "user"],
             default: "user"
-        },
-        notificationPreferences: {
-            emailReminder: { type: Boolean, default: true },
-            pushNotification: { type: Boolean, default: true },
-            notificationSound: { type: Boolean, default: true }
-        },
-        lastLogin: {
-            type: Date,
-            default: null
         }
     },
     {
-        timestamps: true,
+        timestamps: true
     }
 );
 
 // Index for faster queries
 userSchema.index({ email: 1 });
-userSchema.index({ organization: 1 });
+userSchema.index({ station: 1 }); // optional, for filtering by station
 
 export default mongoose.model("User", userSchema);
