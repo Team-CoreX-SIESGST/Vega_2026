@@ -1,7 +1,10 @@
 import axios from "axios";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8001/api";
+// Next.js uses process.env.NEXT_PUBLIC_*; support Vite-style import.meta.env when present
+export const API_BASE_URL =
+  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_BASE_URL) ||
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
+  "http://localhost:8001/api";
 
 class ApiClient {
   constructor() {

@@ -1,4 +1,4 @@
-import { apiClient } from "../utils/api_client";
+import { apiClient, API_BASE_URL } from "../utils/api_client";
 import { getApiErrorMessage } from "@/utils/apiErrorhelper";
 
 const BASE_URL = "/notifications";
@@ -114,7 +114,7 @@ export async function getNotificationStatistics() {
 // Initialize SSE connection
 export function initializeSSE(token) {
   const url = `${
-    import.meta.env.VITE_API_BASE_URL
+    API_BASE_URL
   }${BASE_URL}/stream?token=${encodeURIComponent(token)}`;
 
   // Store token in localStorage for SSE
