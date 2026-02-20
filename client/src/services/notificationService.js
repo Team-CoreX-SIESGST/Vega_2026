@@ -1,4 +1,4 @@
-import { apiClient } from "../api/api-client";
+import { apiClient } from "../utils/api_client";
 import { getApiErrorMessage } from "@/utils/apiErrorhelper";
 
 const BASE_URL = "/notifications";
@@ -126,45 +126,4 @@ export function initializeSSE(token) {
       Authorization: `Bearer ${token}`,
     },
   };
-}
-
-// Local storage helpers
-export function getUserNotificationsFromLocalStorage() {
-  try {
-    const saved = localStorage.getItem("user_notifications");
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch (error) {
-    console.error("Error loading notifications from localStorage:", error);
-  }
-  return [];
-}
-
-export function saveUserNotificationsToLocalStorage(notifications) {
-  try {
-    localStorage.setItem("user_notifications", JSON.stringify(notifications));
-  } catch (error) {
-    console.error("Error saving notifications to localStorage:", error);
-  }
-}
-
-export function getMainNotificationsFromLocalStorage() {
-  try {
-    const saved = localStorage.getItem("main_notifications");
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  } catch (error) {
-    console.error("Error loading main notifications from localStorage:", error);
-  }
-  return [];
-}
-
-export function saveMainNotificationsToLocalStorage(notifications) {
-  try {
-    localStorage.setItem("main_notifications", JSON.stringify(notifications));
-  } catch (error) {
-    console.error("Error saving main notifications to localStorage:", error);
-  }
 }
