@@ -37,6 +37,7 @@ import {
 import { getDashboardStatistics, getNotificationStatistics } from '@/services/dashboardService';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePathname, useRouter } from 'next/navigation';
+import ProfileDropdown from '../components/ProfileDropdown';
 
 const COLORS = {
   primary: '#4E4E94',
@@ -156,29 +157,59 @@ export default function DashboardPage() {
 
         <main className="flex-1 min-w-0">
           {/* Header */}
-          <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b" style={{ borderBottomColor: 'rgba(78,78,148,0.15)' }}>
-            <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold font-outfit" style={{ color: COLORS.foreground }}>
-                  Dashboard <span style={{ color: COLORS.primary }}>Analytics</span>
-                </h1>
-                <p className="text-sm mt-1" style={{ color: COLORS.muted }}>
-                  Comprehensive insights and statistics
-                </p>
+          <div className="sticky top-0 z-40 border-b bg-white/80 backdrop-blur-xl" style={{ borderBottomColor: 'rgba(78,78,148,0.12)' }}>
+            <div className="max-w-7xl mx-auto px-6 py-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide border"
+                    style={{
+                      borderColor: 'rgba(78,78,148,0.25)',
+                      background:
+                        'linear-gradient(120deg, rgba(78,78,148,0.06), rgba(232,232,248,0.7))',
+                      color: COLORS.primary
+                    }}
+                  >
+                    <BarChart3 size={12} />
+                    Live Operations Overview
+                  </div>
+                  <h1
+                    className="mt-3 text-3xl md:text-4xl font-black font-outfit tracking-tight"
+                    style={{ color: COLORS.foreground }}
+                  >
+                    Rail<span style={{ color: COLORS.primary }}>Mind</span>{' '}
+                    <span className="font-semibold">Control Center</span>
+                  </h1>
+                  <p className="mt-1 text-sm md:text-[15px]" style={{ color: COLORS.muted }}>
+                    Monitor complaints, priorities, and notifications in one unified command view.
+                  </p>
+                </div>
+
+                <div className="flex flex-col items-end gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleRefresh}
+                      disabled={refreshing}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 disabled:opacity-60"
+                      style={{
+                        background:
+                          'linear-gradient(135deg, #4E4E94, rgba(78,78,148,0.85))',
+                        color: 'white'
+                      }}
+                    >
+                      <RefreshCw className={refreshing ? 'animate-spin' : ''} size={16} />
+                      Refresh data
+                    </button>
+                    <ProfileDropdown />
+                  </div>
+                  <span className="text-[11px] uppercase tracking-[0.16em]" style={{ color: 'rgba(74,74,106,0.7)' }}>
+                    Snapshot • {new Date().toLocaleString()}
+                  </span>
+                </div>
               </div>
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200 hover:opacity-90 disabled:opacity-50"
-                style={{ backgroundColor: COLORS.primary, color: 'white' }}
-              >
-                <RefreshCw className={refreshing ? 'animate-spin' : ''} size={16} />
-                Refresh
-              </button>
             </div>
           </div>
 
-          <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-8">
         {/* Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
@@ -488,14 +519,22 @@ function DashboardSidebar({ pathname, user }) {
 
   return (
     <aside
-      className="hidden md:flex w-72 shrink-0 border-r bg-white/70 backdrop-blur-md"
-      style={{ borderRightColor: 'rgba(78,78,148,0.15)' }}
-    >
+  className="hidden md:flex w-72 shrink-0 sticky top-0 h-screen overflow-y-auto bg-gradient-to-b from-[#F5F5FF] via-white to-[#F5F5FF]/80 backdrop-blur-xl border-r"
+  style={{ borderRightColor: 'rgba(78,78,148,0.12)' }}
+>
       <div className="w-full flex flex-col p-6">
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 rounded-lg" style={{ backgroundColor: COLORS.primaryLight }}>
-              <Train size={18} style={{ color: COLORS.primary }} />
+            <div
+              className="p-1.5 rounded-xl shadow-sm"
+              style={{
+                background:
+                  'conic-gradient(from 160deg, rgba(78,78,148,0.2), rgba(232,232,248,0.9), rgba(78,78,148,0.15))'
+              }}
+            >
+              <div className="rounded-lg bg-white/90 p-1">
+                <Train size={18} style={{ color: COLORS.primary }} />
+              </div>
             </div>
             <span className="font-outfit font-bold text-lg" style={{ color: COLORS.foreground }}>
               Rail<span style={{ color: COLORS.primary }}>Mind</span>
@@ -513,27 +552,51 @@ function DashboardSidebar({ pathname, user }) {
               <Link
                 key={href}
                 href={href}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200"
+                className="group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200"
                 style={{
-                  backgroundColor: active ? COLORS.primaryLight : 'transparent',
-                  border: `1px solid ${active ? 'rgba(78,78,148,0.25)' : 'transparent'}`,
-                  color: active ? COLORS.primary : COLORS.muted,
+                  backgroundColor: active ? 'rgba(78,78,148,0.08)' : 'transparent',
+                  border: `1px solid ${
+                    active ? 'rgba(78,78,148,0.30)' : 'rgba(78,78,148,0.08)'
+                  }`,
+                  color: active ? COLORS.primary : COLORS.muted
                 }}
               >
+                <span
+                  className="h-7 w-1.5 rounded-full mr-1 transition-all duration-200"
+                  style={{
+                    background: active
+                      ? 'linear-gradient(180deg, #4E4E94, rgba(78,78,148,0.2))'
+                      : 'transparent'
+                  }}
+                />
                 <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: active ? 'rgba(78,78,148,0.12)' : 'rgba(78,78,148,0.06)' }}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200"
+                  style={{
+                    backgroundColor: active ? 'rgba(78,78,148,0.14)' : 'rgba(78,78,148,0.05)'
+                  }}
                 >
-                  <Icon size={18} style={{ color: active ? COLORS.primary : COLORS.muted }} />
+                  <Icon
+                    size={18}
+                    style={{
+                      color: active ? COLORS.primary : COLORS.muted
+                    }}
+                  />
                 </div>
-                <div className="font-semibold text-sm">{label}</div>
+                <div className="font-semibold text-sm truncate">{label}</div>
               </Link>
             );
           })}
         </nav>
 
         <div className="mt-auto pt-6">
-          <div className="rounded-xl p-4 border" style={{ borderColor: 'rgba(78,78,148,0.15)', backgroundColor: 'rgba(78,78,148,0.04)' }}>
+          <div
+            className="rounded-xl p-4 border text-xs"
+            style={{
+              borderColor: 'rgba(78,78,148,0.16)',
+              background:
+                'radial-gradient(circle at top left, rgba(78,78,148,0.12), rgba(245,245,255,0.9))'
+            }}
+          >
             <div className="text-sm font-semibold mb-1" style={{ color: COLORS.foreground }}>
               Tip
             </div>
@@ -552,19 +615,35 @@ function StatCard({ title, value, icon: Icon, color, trend }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-6 rounded-xl border transition-all duration-200 hover:shadow-lg"
+      className="relative overflow-hidden p-6 rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(26,26,46,0.16)]"
       style={{
-        backgroundColor: COLORS.background,
-        borderColor: COLORS.primaryMedium
+        background:
+          'radial-gradient(circle at top left, rgba(78,78,148,0.10), transparent 55%), #ffffff',
+        borderColor: 'rgba(78,78,148,0.18)'
       }}
     >
+      <div
+        className="pointer-events-none absolute inset-x-8 -top-16 h-24 rounded-full opacity-40"
+        style={{
+          background:
+            'radial-gradient(circle at center, rgba(78,78,148,0.35), transparent 60%)'
+        }}
+      />
       <div className="flex items-center justify-between mb-4">
-        <div className="p-2 rounded-lg" style={{ backgroundColor: `${color}20` }}>
+        <div
+          className="p-2.5 rounded-xl shadow-sm"
+          style={{ backgroundColor: `${color}1f` }}
+        >
           <Icon size={24} style={{ color }} />
         </div>
         {trend !== null && (
-          <div className="text-sm font-semibold" style={{ color: COLORS.muted }}>
-            {trend}%
+          <div className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full"
+            style={{
+              backgroundColor: 'rgba(245,245,255,0.9)',
+              color: COLORS.muted
+            }}
+          >
+            <span>{trend}%</span>
           </div>
         )}
       </div>
@@ -583,14 +662,25 @@ function ChartCard({ title, icon: Icon, children }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-6 rounded-xl border transition-all duration-200 hover:shadow-lg"
+      className="relative overflow-hidden p-6 rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_22px_55px_rgba(26,26,46,0.16)]"
       style={{
-        backgroundColor: COLORS.background,
-        borderColor: COLORS.primaryMedium
+        background:
+          'radial-gradient(circle at top left, rgba(78,78,148,0.08), transparent 55%), #ffffff',
+        borderColor: 'rgba(78,78,148,0.16)'
       }}
     >
+      <div
+        className="pointer-events-none absolute -top-24 right-[-40px] h-40 w-40 rounded-full opacity-50"
+        style={{
+          background:
+            'radial-gradient(circle at center, rgba(232,232,248,0.9), transparent 65%)'
+        }}
+      />
       <div className="flex items-center gap-2 mb-6">
-        <div className="p-2 rounded-lg" style={{ backgroundColor: COLORS.primaryLight }}>
+        <div
+          className="p-2.5 rounded-xl shadow-sm"
+          style={{ backgroundColor: COLORS.primaryLight }}
+        >
           <Icon size={20} style={{ color: COLORS.primary }} />
         </div>
         <h3 className="text-lg font-semibold font-outfit" style={{ color: COLORS.foreground }}>

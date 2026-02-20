@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { AlertCircle, FileText, RefreshCw, Search } from 'lucide-react';
+import { AlertCircle, Check, FileText, RefreshCw, Search } from 'lucide-react';
 import { apiClient } from '@/utils/api_client';
 import { useAuth } from '@/contexts/AuthContext';
+import ProfileDropdown from '../../components/ProfileDropdown';
 
 const COLORS = {
   primary: '#4E4E94',
@@ -39,8 +40,35 @@ const statusBg = (status) => {
   }
 };
 
+const STATUS_OPTIONS = [
+  { value: 'received', label: 'Received' },
+  { value: 'assigned', label: 'Assigned' },
+  { value: 'working_on', label: 'Working On' },
+  { value: 'hold', label: 'Hold' },
+  { value: 'pending_info', label: 'Pending Info' },
+  { value: 'escalated', label: 'Escalated' },
+  { value: 'resolved', label: 'Resolved' },
+  { value: 'closed', label: 'Closed' },
+  { value: 'rejected', label: 'Rejected' },
+];
+
+const normalizeRole = (role = '') =>
+  String(role).trim().toLowerCase().replace(/[\s_]+/g, '');
+
+const isAdminRole = (role) => {
+  const normalized = normalizeRole(role);
+  return normalized === 'admin' || normalized === 'superadmin';
+};
+
+const getTimelineStepState = (stepIndex, currentIndex) => {
+  if (currentIndex < 0) return 'upcoming';
+  if (stepIndex < currentIndex) return 'completed';
+  if (stepIndex === currentIndex) return 'current';
+  return 'upcoming';
+};
+
 export default function DashboardQueriesPage() {
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -49,6 +77,9 @@ export default function DashboardQueriesPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
+  const [statusErrors, setStatusErrors] = useState({});
+  const canUpdateStatus = isAdminRole(user?.role);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -89,6 +120,63 @@ export default function DashboardQueriesPage() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchQueries();
+  };
+
+  const handleStatusChange = async (queryId, nextStatus) => {
+    const existingQuery = (data?.queries || []).find((query) => query._id === queryId);
+    if (!existingQuery || existingQuery.status === nextStatus) return;
+
+    setStatusErrors((prev) => ({ ...prev, [queryId]: '' }));
+    setUpdatingStatusId(queryId);
+
+    try {
+      const response = await apiClient.patch(`/queries/${queryId}/status`, {
+        status: nextStatus,
+      });
+
+      if (!response.data?.status) {
+        throw new Error(response.data?.message || 'Failed to update status');
+      }
+
+      const updatedQuery = response.data?.data?.query;
+      setData((prev) => {
+        const nextQueries = prev.queries.map((query) =>
+          query._id === queryId
+            ? (updatedQuery || {
+                ...query,
+                status: nextStatus,
+              })
+            : query,
+        );
+
+        const shouldRemoveFromFilteredList =
+          status !== 'all' && nextStatus !== status;
+        const visibleQueries = shouldRemoveFromFilteredList
+          ? nextQueries.filter((query) => query._id !== queryId)
+          : nextQueries;
+
+        return {
+          ...prev,
+          queries: visibleQueries,
+          pagination: prev.pagination
+            ? {
+                ...prev.pagination,
+                totalQueries: shouldRemoveFromFilteredList
+                  ? Math.max(0, prev.pagination.totalQueries - 1)
+                  : prev.pagination.totalQueries,
+              }
+            : prev.pagination,
+        };
+      });
+    } catch (e) {
+      setStatusErrors((prev) => ({
+        ...prev,
+        [queryId]:
+          e.response?.data?.message || e.message || 'Failed to update status',
+      }));
+    } finally {
+      setUpdatingStatusId(null);
+    }
   };
 
   if (authLoading || loading) {
@@ -159,6 +247,7 @@ export default function DashboardQueriesPage() {
               <RefreshCw className={refreshing ? 'animate-spin' : ''} size={16} />
               Refresh
             </button>
+            <ProfileDropdown />
           </div>
         </div>
       </div>
@@ -251,9 +340,126 @@ export default function DashboardQueriesPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="text-xs text-right shrink-0" style={{ color: COLORS.muted }}>
-                    {new Date(q.createdAt).toLocaleString()}
+                  <div className="text-xs text-right shrink-0 min-w-[170px]" style={{ color: COLORS.muted }}>
+                    <div>{new Date(q.createdAt).toLocaleString()}</div>
+                    {canUpdateStatus && (
+                      <div className="mt-2">
+                        <label
+                          className="block text-[11px] font-semibold uppercase tracking-wide mb-1"
+                          style={{ color: COLORS.muted }}
+                        >
+                          Update Status
+                        </label>
+                        <select
+                          value={q.status}
+                          onChange={(event) =>
+                            handleStatusChange(q._id, event.target.value)
+                          }
+                          disabled={updatingStatusId === q._id}
+                          className="w-full rounded-md border px-2 py-1.5 text-xs bg-white disabled:opacity-60"
+                          style={{
+                            borderColor: 'rgba(78,78,148,0.25)',
+                            color: COLORS.foreground,
+                          }}
+                        >
+                          {STATUS_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
+                </div>
+
+                <div
+                  className="mt-4 pt-3 border-t"
+                  style={{ borderTopColor: 'rgba(78,78,148,0.12)' }}
+                >
+                  <div
+                    className="text-[11px] font-semibold uppercase tracking-wide"
+                    style={{ color: COLORS.muted }}
+                  >
+                    Status Timeline
+                  </div>
+                  <div className="mt-2 overflow-x-auto">
+                    <div className="min-w-[760px] flex items-center">
+                      {STATUS_OPTIONS.map((step, index) => {
+                        const currentIndex = STATUS_OPTIONS.findIndex(
+                          (item) => item.value === q.status,
+                        );
+                        const stepState = getTimelineStepState(index, currentIndex);
+                        const isCompleted = stepState === 'completed';
+                        const isCurrent = stepState === 'current';
+                        const stepColor = isCompleted
+                          ? COLORS.success
+                          : isCurrent
+                            ? statusBg(q.status)
+                            : 'rgba(78,78,148,0.25)';
+
+                        return (
+                          <div key={step.value} className="flex items-center">
+                            <div className="flex flex-col items-center min-w-[84px]">
+                              <div
+                                className="w-6 h-6 rounded-full border flex items-center justify-center"
+                                style={{
+                                  borderColor: stepColor,
+                                  backgroundColor:
+                                    isCompleted || isCurrent
+                                      ? stepColor
+                                      : 'transparent',
+                                }}
+                              >
+                                {isCompleted ? (
+                                  <Check size={12} color="#fff" />
+                                ) : (
+                                  <span
+                                    className="text-[10px] font-semibold"
+                                    style={{
+                                      color: isCurrent ? '#fff' : 'rgba(78,78,148,0.8)',
+                                    }}
+                                  >
+                                    {index + 1}
+                                  </span>
+                                )}
+                              </div>
+                              <div
+                                className="mt-1 text-[11px] text-center leading-tight px-1"
+                                style={{
+                                  color:
+                                    isCompleted || isCurrent
+                                      ? COLORS.foreground
+                                      : COLORS.muted,
+                                  fontWeight: isCurrent ? 700 : 500,
+                                }}
+                              >
+                                {step.label}
+                              </div>
+                            </div>
+
+                            {index < STATUS_OPTIONS.length - 1 && (
+                              <div
+                                className="w-8 h-0.5 mx-1"
+                                style={{
+                                  backgroundColor:
+                                    currentIndex > index
+                                      ? COLORS.success
+                                      : 'rgba(78,78,148,0.2)',
+                                }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {statusErrors[q._id] && (
+                    <div className="mt-2 text-xs" style={{ color: COLORS.danger }}>
+                      {statusErrors[q._id]}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))
@@ -288,4 +494,3 @@ export default function DashboardQueriesPage() {
     </div>
   );
 }
-

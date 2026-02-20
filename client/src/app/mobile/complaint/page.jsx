@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CheckCircle, Train, AlertCircle, ArrowLeft, Image as ImageIcon, X, List } from 'lucide-react';
 import Link from 'next/link';
+import ProfileDropdown from '../../components/ProfileDropdown';
 
 export default function ComplaintPage() {
   const { user } = useAuth();
@@ -140,13 +141,16 @@ export default function ComplaintPage() {
       <div className="min-h-screen bg-background">
         {/* Header */}
         <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b" style={{ borderBottomColor: 'rgba(78,78,148,0.15)' }}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
-            <Link href="/mobile" className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
-              <ArrowLeft size={20} style={{ color: '#4E4E94' }} />
-            </Link>
-            <h1 className="font-outfit text-xl sm:text-2xl font-bold" style={{ color: '#1A1A2E' }}>
-              Log a Complaint
-            </h1>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Link href="/mobile" className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                <ArrowLeft size={20} style={{ color: '#4E4E94' }} />
+              </Link>
+              <h1 className="font-outfit text-xl sm:text-2xl font-bold" style={{ color: '#1A1A2E' }}>
+                Log a Complaint
+              </h1>
+            </div>
+            <ProfileDropdown />
           </div>
         </nav>
 

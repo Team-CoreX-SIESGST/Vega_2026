@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Plus, Clock, CheckCircle, AlertCircle, Train, Calendar, XCircle, Loader2, Ban } from 'lucide-react';
 import { ArrowLeft } from 'lucide-react';
+import ProfileDropdown from '../../components/ProfileDropdown';
 
 export default function IssuesPage() {
   const { user } = useAuth();
@@ -110,20 +111,23 @@ export default function IssuesPage() {
                 My Issues
               </h1>
             </div>
-            <Link href="/mobile/complaint">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl font-semibold text-sm text-white transition-all"
-                style={{
-                  backgroundColor: '#4E4E94',
-                  boxShadow: '0 4px 20px rgba(78,78,148,0.25)',
-                }}
-              >
-                <Plus size={16} />
-                <span className="hidden sm:inline">New</span>
-              </motion.button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/mobile/complaint">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl font-semibold text-sm text-white transition-all"
+                  style={{
+                    backgroundColor: '#4E4E94',
+                    boxShadow: '0 4px 20px rgba(78,78,148,0.25)',
+                  }}
+                >
+                  <Plus size={16} />
+                  <span className="hidden sm:inline">New</span>
+                </motion.button>
+              </Link>
+              <ProfileDropdown />
+            </div>
           </div>
         </nav>
 

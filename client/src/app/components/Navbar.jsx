@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Train } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import ProfileDropdown from "./ProfileDropdown";
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -61,13 +62,16 @@ const Navbar = () => {
         {/* CTA Buttons */}
         <div className="hidden md:flex items-center gap-3">
           {isAuthenticated ? (
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 hover:opacity-90 hover:shadow-md"
-              style={{ backgroundColor: "#4E4E94" }}
-            >
-              Dashboard
-            </Link>
+            <>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 hover:opacity-90 hover:shadow-md"
+                style={{ backgroundColor: "#4E4E94" }}
+              >
+                Dashboard
+              </Link>
+              <ProfileDropdown />
+            </>
           ) : (
             <>
               <Link
