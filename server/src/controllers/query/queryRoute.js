@@ -5,7 +5,8 @@ import {
     getQueryById,
     updateQuery,
     updateQueryStatus,
-    deleteQuery
+    deleteQuery,
+    getDashboardStatistics
 } from "./queryControllers.js";
 import { verifyJWT } from "../../middlewares/auth.middleware.js";
 import { upload } from "../../middlewares/multer.middleware.js";
@@ -14,6 +15,9 @@ import { checkRole } from "../../middlewares/role.middleware.js";
 const router = express.Router();
 
 router.use(verifyJWT); // All routes require authentication
+
+// Dashboard statistics
+router.get("/dashboard/statistics", getDashboardStatistics);
 
 // Create query with image upload (max 5 images)
 router.post(

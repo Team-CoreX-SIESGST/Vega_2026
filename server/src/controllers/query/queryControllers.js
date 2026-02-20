@@ -624,3 +624,223 @@ export const deleteQuery = asyncHandler(async (req, res) => {
 
     return sendResponse(res, true, null, "Query deleted successfully", 200);
 });
+
+// Get Dashboard Statistics
+export const getDashboardStatistics = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
+    const userRole = req.user.role;
+    
+    // Build base filter - users see only their queries, admins see all
+    const baseFilter = userRole === "admin" || userRole === "super_admin" ? {} : { user_id: userId };
+
+    // Get all statistics in parallel
+    const [
+        totalQueries,
+        statusDistribution,
+        priorityDistribution,
+        categoryDistribution,
+        departmentDistribution,
+        trainDistribution,
+        timeSeriesData,
+        recentQueries,
+        topKeywords
+    ] = await Promise.all([
+        // Total queries count
+        Query.countDocuments(baseFilter),
+
+        // Status distribution
+        Query.aggregate([
+            { $match: baseFilter },
+            {
+                $group: {
+                    _id: "$status",
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { count: -1 } }
+        ]),
+
+        // Priority distribution (buckets: 0-20, 21-40, 41-60, 61-80, 81-100)
+        Query.aggregate([
+            { $match: baseFilter },
+            {
+                $bucket: {
+                    groupBy: "$priority_percentage",
+                    boundaries: [0, 21, 41, 61, 81, 101],
+                    default: "other",
+                    output: {
+                        count: { $sum: 1 },
+                        avgPriority: { $avg: "$priority_percentage" }
+                    }
+                }
+            }
+        ]),
+
+        // Category distribution
+        Query.aggregate([
+            { $match: baseFilter },
+            { $unwind: "$category" },
+            {
+                $group: {
+                    _id: "$category",
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+        ]),
+
+        // Department distribution
+        Query.aggregate([
+            { $match: baseFilter },
+            { $unwind: "$departments" },
+            {
+                $group: {
+                    _id: "$departments",
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+        ]),
+
+        // Train distribution (top trains with most queries)
+        Query.aggregate([
+            { $match: baseFilter },
+            {
+                $group: {
+                    _id: "$train_number",
+                    count: { $sum: 1 },
+                    trainName: { $first: "$train_details.train_name" }
+                }
+            },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+        ]),
+
+        // Time series data (queries per day for last 30 days)
+        Query.aggregate([
+            { $match: baseFilter },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: {
+                            format: "%Y-%m-%d",
+                            date: "$createdAt"
+                        }
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } },
+            { $limit: 30 }
+        ]),
+
+        // Recent queries (last 10)
+        Query.find(baseFilter)
+            .populate("user_id", "name email")
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .lean(),
+
+        // Top keywords
+        Query.aggregate([
+            { $match: baseFilter },
+            { $unwind: "$keywords" },
+            {
+                $group: {
+                    _id: "$keywords",
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { count: -1 } },
+            { $limit: 15 }
+        ])
+    ]);
+
+    // Calculate additional metrics
+    const resolvedCount = statusDistribution.find(s => s._id === "resolved")?.count || 0;
+    const inProgressCount = statusDistribution.find(s => s._id === "working_on")?.count || 0;
+    const pendingCount = statusDistribution.find(s => s._id === "received")?.count || 0;
+    
+    // Average priority
+    const avgPriorityResult = await Query.aggregate([
+        { $match: baseFilter },
+        {
+            $group: {
+                _id: null,
+                avgPriority: { $avg: "$priority_percentage" }
+            }
+        }
+    ]);
+    const avgPriority = avgPriorityResult[0]?.avgPriority || 0;
+
+    // High priority queries (>= 80)
+    const highPriorityCount = await Query.countDocuments({
+        ...baseFilter,
+        priority_percentage: { $gte: 80 }
+    });
+
+    // Format time series data
+    const formattedTimeSeries = timeSeriesData.map(item => ({
+        date: item._id,
+        count: item.count
+    }));
+
+    // Format recent queries
+    const formattedRecentQueries = recentQueries.map(query => ({
+        id: query._id,
+        description: query.description,
+        status: query.status,
+        priority_percentage: query.priority_percentage,
+        train_number: query.train_number,
+        train_name: query.train_details?.train_name,
+        category: query.category,
+        createdAt: query.createdAt,
+        user: query.user_id ? {
+            name: query.user_id.name,
+            email: query.user_id.email
+        } : null
+    }));
+
+    const result = {
+        overview: {
+            totalQueries,
+            resolvedCount,
+            inProgressCount,
+            pendingCount,
+            highPriorityCount,
+            avgPriority: Math.round(avgPriority * 10) / 10
+        },
+        statusDistribution: statusDistribution.map(item => ({
+            status: item._id,
+            count: item.count
+        })),
+        priorityDistribution: priorityDistribution.map((item, index) => ({
+            range: index === 0 ? "0-20" : index === 1 ? "21-40" : index === 2 ? "41-60" : index === 3 ? "61-80" : "81-100",
+            count: item.count,
+            avgPriority: Math.round(item.avgPriority * 10) / 10
+        })),
+        categoryDistribution: categoryDistribution.map(item => ({
+            category: item._id,
+            count: item.count
+        })),
+        departmentDistribution: departmentDistribution.map(item => ({
+            department: item._id,
+            count: item.count
+        })),
+        trainDistribution: trainDistribution.map(item => ({
+            trainNumber: item._id,
+            trainName: item.trainName || "Unknown",
+            count: item.count
+        })),
+        timeSeriesData: formattedTimeSeries,
+        recentQueries: formattedRecentQueries,
+        topKeywords: topKeywords.map(item => ({
+            keyword: item._id,
+            count: item.count
+        }))
+    };
+
+    return sendResponse(res, true, result, "Dashboard statistics retrieved successfully", 200);
+});
