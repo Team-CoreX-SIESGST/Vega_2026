@@ -1,11 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { apiClient } from '../../../utils/api_client';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { CheckCircle, Train, AlertCircle, ArrowLeft, Image as ImageIcon, X, List } from 'lucide-react';
+import { CheckCircle, Train, AlertCircle, ArrowLeft, Image as ImageIcon, X, List, Mic, MicOff } from 'lucide-react';
 import Link from 'next/link';
 import ProfileDropdown from '../../components/ProfileDropdown';
 
@@ -23,6 +23,91 @@ export default function ComplaintPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [speechError, setSpeechError] = useState('');
+  const recognitionRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const SpeechRecognitionClass =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionClass) {
+      setSpeechSupported(false);
+      return undefined;
+    }
+
+    setSpeechSupported(true);
+    const recognition = new SpeechRecognitionClass();
+    recognition.lang = 'en-IN';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event) => {
+      let finalTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const transcriptChunk = event.results[i][0]?.transcript || '';
+        if (event.results[i].isFinal) {
+          finalTranscript += transcriptChunk;
+        }
+      }
+
+      if (!finalTranscript.trim()) return;
+
+      setComplaintText((prev) => {
+        const trimmedPrev = prev.trim();
+        const prefix = trimmedPrev ? `${trimmedPrev} ` : '';
+        return `${prefix}${finalTranscript.trim()} `;
+      });
+    };
+
+    recognition.onerror = (event) => {
+      const message =
+        event?.error === 'not-allowed'
+          ? 'Microphone permission denied. Please allow mic access.'
+          : 'Voice capture failed. Please try again.';
+      setSpeechError(message);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    };
+  }, []);
+
+  const toggleVoiceInput = () => {
+    if (!speechSupported || !recognitionRef.current) {
+      setSpeechError('Voice input is not supported in this browser.');
+      return;
+    }
+
+    setSpeechError('');
+    try {
+      if (isListening) {
+        recognitionRef.current.stop();
+      } else {
+        recognitionRef.current.start();
+        setIsListening(true);
+      }
+    } catch {
+      setIsListening(false);
+      setSpeechError('Unable to start voice input. Please try again.');
+    }
+  };
 
   const validateTrain = async () => {
     if (!trainNumber) return;
@@ -91,6 +176,9 @@ export default function ComplaintPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
     if (!complaintText.trim()) {
       setError('Complaint text is required');
       return;
@@ -385,9 +473,24 @@ export default function ComplaintPage() {
 
                 {/* Complaint Details Field */}
                 <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: '#1A1A2E' }}>
-                    Complaint Details <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <label className="block text-sm font-semibold" style={{ color: '#1A1A2E' }}>
+                      Complaint Details <span className="text-red-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={toggleVoiceInput}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all"
+                      style={{
+                        borderColor: isListening ? 'rgba(239,68,68,0.35)' : 'rgba(78,78,148,0.25)',
+                        backgroundColor: isListening ? 'rgba(239,68,68,0.08)' : 'rgba(78,78,148,0.06)',
+                        color: isListening ? '#EF4444' : '#4E4E94',
+                      }}
+                    >
+                      {isListening ? <MicOff size={13} /> : <Mic size={13} />}
+                      {isListening ? 'Stop' : 'Voice to Text'}
+                    </button>
+                  </div>
                   <textarea
                     rows="6"
                     value={complaintText}
@@ -412,6 +515,21 @@ export default function ComplaintPage() {
                   <p className="text-xs mt-1.5" style={{ color: '#4A4A6A' }}>
                     Be specific about the problem, location, and time if relevant.
                   </p>
+                  {isListening && (
+                    <p className="text-xs mt-1.5" style={{ color: '#EF4444' }}>
+                      Listening... speak now.
+                    </p>
+                  )}
+                  {!speechSupported && (
+                    <p className="text-xs mt-1.5" style={{ color: '#4A4A6A' }}>
+                      Voice input works in supported browsers like Chrome/Edge.
+                    </p>
+                  )}
+                  {speechError && (
+                    <p className="text-xs mt-1.5" style={{ color: '#EF4444' }}>
+                      {speechError}
+                    </p>
+                  )}
                 </div>
 
                 {/* Image Upload */}
