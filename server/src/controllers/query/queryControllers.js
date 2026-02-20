@@ -5,6 +5,7 @@ import axios from "axios";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import pineconeService from "../../services/pineconeService.js";
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -582,6 +583,11 @@ export const createQuery = asyncHandler(async (req, res) => {
         departments: [fastApiResult.department || "General"],
         status: "received"
     });
+
+    // Async Pinecone sync — fire-and-forget so it doesn't delay the API response
+    pineconeService.upsertQuery(query).catch((err) =>
+        console.error("[Pinecone] Auto-sync failed for new query:", err.message)
+    );
 
     return sendResponse(
         res,

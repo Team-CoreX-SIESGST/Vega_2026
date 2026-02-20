@@ -9,6 +9,7 @@ import stationRoutes from "./controllers/station/stationRoutes.js";
 import trainRoutes from "./controllers/train/trainRoutes.js";
 import mobileRoutes from "./controllers/mobile/mobileRoutes.js";
 import queryRoutes from "./controllers/query/queryRoute.js";
+import chatRoutes from "./controllers/chat/chatRoute.js";
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use("/api/notifications", notificationRoute);
 app.use("/api/trains", trainRoutes);
 app.use("/api/mobile", mobileRoutes);
 app.use("/api/queries", queryRoutes);
+app.use("/api/chat", chatRoutes);
 
 // backend route for OAuth callback
 app.get("/oauth2callback", (req, res) => {
