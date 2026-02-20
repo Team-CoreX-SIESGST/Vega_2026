@@ -49,8 +49,9 @@ module.exports = {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        display: ['var(--font-display)'],
-        body: ['var(--font-body)'],
+        display: ['var(--font-display)', 'sans-serif'],
+        body: ['var(--font-body)', 'sans-serif'],
+        outfit: ['var(--font-display)', 'Outfit', 'sans-serif'],
       },
       boxShadow: {
         neon: '0 0 18px hsl(var(--primary) / 0.55), 0 0 32px hsl(var(--primary) / 0.35)',
