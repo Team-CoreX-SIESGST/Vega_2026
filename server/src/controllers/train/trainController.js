@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Path to the CSV file
-const trainCsvPath = path.join(__dirname, "../data/Train_details_22122017.csv");
+const trainCsvPath = path.join(__dirname, "../../data/Train_details_22122017.csv");
 
 let trainsCache = null;
 
