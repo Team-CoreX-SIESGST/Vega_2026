@@ -40,24 +40,22 @@ const checkTrainRunningStatus = (trainSchedule) => {
     return true; // Default to running if unsure (safer for priority)
 };
 
-// Analyze with Gemini
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
 const analyzeWithGemini = async (description, imageUrls, trainSchedule, isTrainRunning) => {
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
         const currentTime = new Date().toLocaleTimeString("en-US", {
             hour12: false,
             hour: "2-digit",
             minute: "2-digit"
         });
 
-        const prompt = `
-You are a railway complaint analysis system. Analyze the following passenger query and provide:
+        // Build content parts - combine text and images
+        const contents = [];
 
-1. **Categories**: Array of relevant categories (e.g., ["cleanliness", "security", "food", "medical", "technical", "staff_behavior", "infrastructure", "delay", "booking"])
-2. **Keywords**: Array of 5-10 relevant keywords for search
-3. **Department**: Single most relevant department to handle this (e.g., "cleaning", "security", "catering", "medical", "engineering", "operations", "customer_service", "reservations", "commercial")
-4. **Priority Assessment**: Brief analysis of urgency
+        // Add text prompt
+        const prompt = `
+You are a railway complaint analysis system. Analyze the following passenger query and provide structured output.
 
 Current Time: ${currentTime}
 
@@ -72,42 +70,81 @@ Train Details:
 - Distance: ${trainSchedule.distance || "N/A"} km
 - Sequence No: ${trainSchedule.seq || "N/A"}
 
-Is Train Currently Running (at station or between stations): ${isTrainRunning ? "YES" : "NO"}
+Is Train Currently Running: ${isTrainRunning ? "YES" : "NO"}
 
 User Description: "${description}"
-
-${imageUrls.length > 0 ? `Images provided: ${imageUrls.length} image(s)` : "No images provided"}
 
 Instructions for Priority Analysis:
 - If train is RUNNING and issue is urgent (medical, security, safety, harassment, accident), priority should be HIGH (80-100)
 - If train is RUNNING and issue is moderate (cleanliness, food quality, AC not working), priority should be MEDIUM-HIGH (60-80)
-- If train is NOT RUNNING (at destination or not started), only assign HIGH priority (70-100) if the issue is CRITICAL (safety, security, medical emergency, accident, harassment)
-- If train is NOT RUNNING and issue is routine (booking issues, refund, general inquiry), priority should be LOW-MEDIUM (20-50)
-
-Return ONLY a JSON object in this exact format:
-{
-    "categories": ["category1", "category2"],
-    "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
-    "department": "department_name",
-    "priority_analysis": "brief explanation of why this priority",
-    "is_urgent": true/false
-}
+- If train is NOT RUNNING, only assign HIGH priority (70-100) if CRITICAL (safety, security, medical emergency, accident, harassment)
+- If train is NOT RUNNING and issue is routine (booking, refund, inquiry), priority should be LOW-MEDIUM (20-50)
 `;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        contents.push(prompt);
 
-        // Extract JSON from response
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
+        // Add images if provided (Gemini can analyze images directly from URLs in most cases)
+        if (imageUrls.length > 0) {
+            for (const imageUrl of imageUrls) {
+                contents.push({
+                    fileData: {
+                        mimeType: "image/jpeg", // Adjust based on actual image type
+                        fileUri: imageUrl
+                    }
+                });
+            }
         }
 
-        throw new Error("Invalid Gemini response format");
+        // Use structured output (JSON mode) with response schema
+        const response = await ai.models.generateContent({
+            model: "gemini-2.0-flash", // or "gemini-3-flash-preview" for latest
+            contents: contents,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        categories: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING },
+                            description:
+                                "Relevant categories (cleanliness, security, food, medical, technical, staff_behavior, infrastructure, delay, booking)"
+                        },
+                        keywords: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING },
+                            description: "5-10 relevant keywords for search"
+                        },
+                        department: {
+                            type: Type.STRING,
+                            description:
+                                "Single most relevant department (cleaning, security, catering, medical, engineering, operations, customer_service, reservations, commercial)"
+                        },
+                        priority_analysis: {
+                            type: Type.STRING,
+                            description: "Brief explanation of urgency assessment"
+                        },
+                        is_urgent: {
+                            type: Type.BOOLEAN,
+                            description: "Whether this requires immediate attention"
+                        }
+                    },
+                    required: [
+                        "categories",
+                        "keywords",
+                        "department",
+                        "priority_analysis",
+                        "is_urgent"
+                    ]
+                }
+            }
+        });
+
+        // Parse the JSON response directly
+        const result = JSON.parse(response.text);
+        return result;
     } catch (error) {
         console.error("Gemini analysis failed:", error);
-        // Return default values if Gemini fails
         return {
             categories: ["general"],
             keywords: ["complaint", "railway", "issue", "train", "passenger"],
@@ -117,6 +154,35 @@ Return ONLY a JSON object in this exact format:
         };
     }
 };
+
+// Example usage
+async function main() {
+    const trainSchedule = {
+        train_no: "12345",
+        train_name: "Rajdhani Express",
+        station_name: "New Delhi",
+        station_code: "NDLS",
+        arrival_time: "16:00",
+        departure_time: "16:30",
+        source_station_name: "Mumbai Central",
+        source_station: "MMCT",
+        destination_station_name: "New Delhi",
+        destination_station: "NDLS",
+        distance: "1384",
+        seq: "5"
+    };
+
+    const result = await analyzeWithGemini(
+        "AC not working in coach B2, temperature is very high",
+        [], // imageUrls
+        trainSchedule,
+        true // isTrainRunning
+    );
+
+    console.log(result);
+}
+
+main();
 
 // Calculate Priority Percentage
 const calculatePriority = (isTrainRunning, geminiAnalysis, description) => {
