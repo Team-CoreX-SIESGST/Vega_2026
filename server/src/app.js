@@ -31,6 +31,7 @@ app.use(cookieParser());
 app.use("/api/auth", userRoute);
 // app.use("/api/users", settingsRoute);
 app.use("/api/stations", stationRoutes);
+app.use("/api/trains", trainRoutes);
 app.use(verifyJWT);
 app.use("/api/notifications", notificationRoute);
 app.use("/api/trains", trainRoutes);

@@ -27,14 +27,26 @@ const querySchema = new mongoose.Schema(
         },
         train_number: {
             type: String,
-            default: null,
+            required: true,
             index: true
         },
+        train_details: {
+            train_name: String,
+            station_code: String,
+            station_name: String,
+            arrival_time: String,
+            departure_time: String,
+            seq: Number,
+            distance: String,
+            source_station: String,
+            source_station_name: String,
+            destination_station: String,
+            destination_station_name: String
+        },
         category: {
-            type: [String], // now an array of strings
+            type: [String],
             required: true,
             trim: true
-            // enum removed
         },
         priority_percentage: {
             type: Number,
@@ -75,20 +87,31 @@ const querySchema = new mongoose.Schema(
             ],
             default: "received",
             index: true
-        }
+        },
+        status_history: [
+            {
+                status: String,
+                changed_by: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "User"
+                },
+                changed_at: Date,
+                remarks: String
+            }
+        ]
     },
     {
-        timestamps: true // adds createdAt and updatedAt automatically
+        timestamps: true
     }
 );
 
-// Create a 2dsphere index for location-based queries
+// Indexes
 querySchema.index({ user_location: "2dsphere" });
-
-// Additional compound indexes for common query patterns
-// Note: category is now an array, so this creates a multikey index
 querySchema.index({ category: 1, priority_percentage: -1 });
 querySchema.index({ createdAt: -1 });
-querySchema.index({ status: 1, createdAt: -1 }); // useful for filtering by status with recent first
+querySchema.index({ status: 1, createdAt: -1 });
+querySchema.index({ keywords: 1 });
+querySchema.index({ train_number: 1, status: 1 });
+querySchema.index({ departments: 1 });
 
 export default mongoose.model("Query", querySchema);
