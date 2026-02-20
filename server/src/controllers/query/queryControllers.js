@@ -844,3 +844,109 @@ export const getDashboardStatistics = asyncHandler(async (req, res) => {
 
     return sendResponse(res, true, result, "Dashboard statistics retrieved successfully", 200);
 });
+
+
+// Add this function to your queryControllers.js file
+
+import fs from 'fs';
+import path from 'path';
+import csv from 'csv-parser';
+import { fileURLToPath } from "url";
+
+// Insert data from CSV file
+export const insertData = asyncHandler(async (req, res) => {
+    // Get current file's directory (for ES modules)
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    
+    // Path to stations.json (adjust if placed elsewhere)
+    const filePath = path.join(__dirname, "../../data/railway_complaints_data_updated.csv");
+    
+
+    if (!fs.existsSync(filePath)) {
+        return sendResponse(res, false, null, "Data file not found", 404);
+    }
+
+    const results = [];
+
+    fs.createReadStream(filePath)
+        .pipe(csv())
+        .on("data", (data) => results.push(data))
+        .on("end", async () => {
+            try {
+                const toArray = (str) => {
+                    if (!str) return [];
+                    return str
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean);
+                };
+
+                const queries = results.map((row) => {
+                    return {
+                        user_id: row.user_id,
+
+                        source: row.source || null,
+                        train_number: row.train_number,
+                        station_code: row.station_code || null,
+
+                        train_details: {
+                            train_name: row["train_details.train_name"] || null,
+                            station_code: row["train_details.station_code"] || null,
+                            station_name: row["train_details.station_name"] || null,
+                            arrival_time: row["train_details.arrival_time"] || null,
+                            departure_time: row["train_details.departure_time"] || null,
+                            seq: row["train_details.seq"] ? Number(row["train_details.seq"]) : null,
+                            distance: row["train_details.distance"] || null,
+                            source_station: row["train_details.source_station"] || null,
+                            source_station_name: row["train_details.source_station_name"] || null,
+                            destination_station: row["train_details.destination_station"] || null,
+                            destination_station_name:
+                                row["train_details.destination_station_name"] || null
+                        },
+
+                        category: toArray(row.category),
+                        priority_percentage: Number(row.priority_percentage),
+
+                        description: row.description,
+
+                        keywords: toArray(row.keywords),
+                        departments: toArray(row.departments),
+
+                        status: row.status || "received",
+
+                        status_history: [], // CSV has [] everywhere
+
+                        createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
+
+                        updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date()
+                    };
+                });
+
+                const inserted = await Query.insertMany(queries, {
+                    ordered: false
+                });
+
+                return sendResponse(
+                    res,
+                    true,
+                    { count: inserted.length },
+                    `${inserted.length} queries inserted successfully`,
+                    201
+                );
+            } catch (error) {
+                console.error("Error inserting data:", error);
+                return sendResponse(
+                    res,
+                    false,
+                    null,
+                    "Failed to insert data: " + error.message,
+                    500
+                );
+            }
+        })
+        .on("error", (error) => {
+            console.error("CSV parsing error:", error);
+            return sendResponse(res, false, null, "Error reading CSV file", 500);
+        });
+});
