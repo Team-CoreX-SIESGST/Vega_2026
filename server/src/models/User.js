@@ -34,7 +34,6 @@ const userSchema = new mongoose.Schema(
 );
 
 // Index for faster queries
-userSchema.index({ email: 1 });
 userSchema.index({ station: 1 }); // optional, for filtering by station
 
 export default mongoose.model("User", userSchema);
