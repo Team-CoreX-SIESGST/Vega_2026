@@ -338,31 +338,19 @@ export const calculatePriority = (isTrainRunning, geminiAnalysis, description) =
 
 // Classify department via external classifier (FastAPI/NLPPY).
 // This is the single source of truth for department assignment.
-export const classifyDepartmentWithFastApi = async ({
-    description,
-    category = null,
-    isUrgent = false,
-    trainNumber = null
-}) => {
+export const classifyDepartmentWithFastApi = async (description) => {
     const nlppyUrl = process.env.NLPPY_URL || process.env.NLP_URL;
+    const startedAt = Date.now();
 
-    if (!nlppyUrl) {
-        return {
-            department: "General",
-            confidence: 0,
-            source: "fallback_no_classifier"
-        };
-    }
 
     try {
+        const classifierPayload = {
+            complaint_text: description?.trim() || ""
+        };
+
         const { data } = await axios.post(
             `${nlppyUrl.replace(/\/$/, "")}/classify`,
-            {
-                complaint_text: description?.trim() || "",
-                category,
-                priority: isUrgent ? "high" : "normal",
-                train_number: trainNumber || null
-            },
+            classifierPayload,
             { timeout: 10000 }
         );
 
@@ -371,21 +359,24 @@ export const classifyDepartmentWithFastApi = async ({
                 department: data.department,
                 confidence:
                     typeof data.confidence === "number" ? data.confidence : null,
-                source: "fastapi"
+                source: "fastapi",
+                elapsed_ms: Date.now() - startedAt
             };
         }
 
         return {
             department: "General",
             confidence: 0,
-            source: "fallback_invalid_classifier_response"
+            source: "fallback_invalid_classifier_response",
+            elapsed_ms: Date.now() - startedAt
         };
     } catch (err) {
         console.warn("FastAPI classify failed:", err?.message);
         return {
             department: "General",
             confidence: 0,
-            source: "fallback_classifier_error"
+            source: "fallback_classifier_error",
+            elapsed_ms: Date.now() - startedAt
         };
     }
 };
@@ -540,22 +531,22 @@ export const createQuery = asyncHandler(async (req, res) => {
     // Determine if train is running based on schedule
     const isTrainRunning = checkTrainRunningStatus(train_schedule);
 
-    // Analyze with Gemini
-    const geminiAnalysis = await analyzeWithGemini(
+    const geminiPromise = analyzeWithGemini(
         description,
         imageUrls,
         train_schedule,
         isTrainRunning
     );
+    const classifierPromise = classifyDepartmentWithFastApi(description);
+
+    // Run Gemini + NLP in parallel to reduce end-to-end latency.
+    const [geminiAnalysis, fastApiResult] = await Promise.all([
+        geminiPromise,
+        classifierPromise
+    ]);
 
     // Calculate priority
     const priority_percentage = calculatePriority(isTrainRunning, geminiAnalysis, description);
-    const fastApiResult = await classifyDepartmentWithFastApi({
-        description,
-        category: geminiAnalysis.categories?.[0] || null,
-        isUrgent: geminiAnalysis.is_urgent === true,
-        trainNumber: train_schedule.train_no || null
-    });
 
     // Create query
     const query = await Query.create({
@@ -760,23 +751,24 @@ export const updateQuery = asyncHandler(async (req, res) => {
 
         // Recalculate priority with new train info
         const isTrainRunning = checkTrainRunningStatus(train_schedule);
-        const geminiAnalysis = await analyzeWithGemini(
+        const geminiPromise = analyzeWithGemini(
             description || query.description,
             [],
             train_schedule,
             isTrainRunning
         );
+        const classifierPromise = classifyDepartmentWithFastApi(
+            description || query.description
+        );
+        const [geminiAnalysis, fastApiResult] = await Promise.all([
+            geminiPromise,
+            classifierPromise
+        ]);
         query.priority_percentage = calculatePriority(
             isTrainRunning,
             geminiAnalysis,
             description || query.description
         );
-        const fastApiResult = await classifyDepartmentWithFastApi({
-            description: description || query.description,
-            category: geminiAnalysis.categories?.[0] || null,
-            isUrgent: geminiAnalysis.is_urgent === true,
-            trainNumber: train_schedule.train_no || null
-        });
         query.category = geminiAnalysis.categories;
         query.keywords = geminiAnalysis.keywords;
         query.departments = [fastApiResult.department || "General"];
