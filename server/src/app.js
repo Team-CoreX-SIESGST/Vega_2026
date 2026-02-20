@@ -18,7 +18,7 @@ app.use(
             "http://localhost:3000",
             "http://localhost:3001",
             "http://localhost:5173",
-            "hhttps://equational-keira-unperceptively.ngrok-free.dev",
+            "https://equational-keira-unperceptively.ngrok-free.dev",
             "https://asha-workers-pi.vercel.app"
         ],
         credentials: true
