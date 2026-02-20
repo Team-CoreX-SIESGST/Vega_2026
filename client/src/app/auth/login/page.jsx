@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -507,4 +507,37 @@ const ErrorMsg = ({ msg }) => (
   </motion.p>
 );
 
-export default LoginPage;
+function LoginPageFallback() {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "var(--font-display), 'Outfit', sans-serif",
+        background: "#F7F7FB",
+      }}
+    >
+      <div
+        style={{
+          width: "24px",
+          height: "24px",
+          border: "2px solid rgba(78,78,148,0.2)",
+          borderTopColor: "#4E4E94",
+          borderRadius: "50%",
+          animation: "spin 0.8s linear infinite",
+        }}
+      />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+export default function LoginPageWithSuspense() {
+  return (
+    <Suspense fallback={<LoginPageFallback />}>
+      <LoginPage />
+    </Suspense>
+  );
+}

@@ -10,6 +10,7 @@ const outfit = Outfit({ subsets: ['latin'], variable: '--font-display' });
 export const metadata = {
   title: "RailMind",
   description: "AI for Smarter Railways",
+  manifest: '/manifest.json'
 };
 
 export default function RootLayout({ children }) {
