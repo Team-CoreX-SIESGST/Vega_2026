@@ -63,3 +63,55 @@ export function getTrainByNumber(trainNumber) {
         zone: row["Source Station Name"] || row["Source Station"] || "Indian Railways",
     };
 }
+
+/** Get train schedule by train number. Returns array of all stations for the train, or first station entry. */
+export function getTrainScheduleByNumber(trainNumber, stationCode = null) {
+    if (!trainNumber) return null;
+    const trains = loadTrains();
+    const normalized = String(trainNumber).trim();
+    
+    // Get all rows for this train number
+    const trainRows = trains.filter((t) => String(t["Train No"] || "").trim() === normalized);
+    if (trainRows.length === 0) return null;
+    
+    // If stationCode provided, find that specific station entry
+    if (stationCode) {
+        const stationRow = trainRows.find((t) => 
+            String(t["Station Code"] || "").trim().toUpperCase() === String(stationCode).trim().toUpperCase()
+        );
+        if (stationRow) {
+            return formatTrainScheduleRow(stationRow);
+        }
+    }
+    
+    // Return first station entry (or you could return all stations)
+    const firstRow = trainRows[0];
+    return formatTrainScheduleRow(firstRow);
+}
+
+/** Format a CSV row into train schedule object matching the expected format */
+function formatTrainScheduleRow(row) {
+    return {
+        train_no: String(row["Train No"] || "").trim(),
+        train_name: row["Train Name"] || row["train_name"] || "Unknown",
+        station_name: row["Station Name"] || "",
+        station_code: row["Station Code"] || "",
+        arrival_time: row["Arrival time"] || row["Arrival Time"] || "",
+        departure_time: row["Departure Time"] || row["Departure time"] || "",
+        source_station: row["Source Station"] || "",
+        source_station_name: row["Source Station Name"] || "",
+        destination_station: row["Destination Station"] || "",
+        destination_station_name: row["Destination Station Name"] || "",
+        distance: row["Distance"] || "",
+        seq: parseInt(row["SEQ"] || row["seq"] || "0", 10)
+    };
+}
+
+/** Get all stations for a train number */
+export function getAllStationsForTrain(trainNumber) {
+    if (!trainNumber) return [];
+    const trains = loadTrains();
+    const normalized = String(trainNumber).trim();
+    const trainRows = trains.filter((t) => String(t["Train No"] || "").trim() === normalized);
+    return trainRows.map(formatTrainScheduleRow);
+}

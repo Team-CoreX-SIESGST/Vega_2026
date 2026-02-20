@@ -8,17 +8,6 @@ const querySchema = new mongoose.Schema(
             required: true,
             index: true
         },
-        user_location: {
-            type: {
-                type: String,
-                enum: ["Point"],
-                default: "Point"
-            },
-            coordinates: {
-                type: [Number], // [longitude, latitude]
-                required: true
-            }
-        },
         source: {
             type: String,
             trim: true,
@@ -28,6 +17,11 @@ const querySchema = new mongoose.Schema(
         train_number: {
             type: String,
             required: true,
+            index: true
+        },
+        station_code: {
+            type: String,
+            trim: true,
             index: true
         },
         train_details: {
@@ -106,12 +100,12 @@ const querySchema = new mongoose.Schema(
 );
 
 // Indexes
-querySchema.index({ user_location: "2dsphere" });
 querySchema.index({ category: 1, priority_percentage: -1 });
 querySchema.index({ createdAt: -1 });
 querySchema.index({ status: 1, createdAt: -1 });
 querySchema.index({ keywords: 1 });
 querySchema.index({ train_number: 1, status: 1 });
+querySchema.index({ train_number: 1, station_code: 1 });
 querySchema.index({ departments: 1 });
 
 export default mongoose.model("Query", querySchema);

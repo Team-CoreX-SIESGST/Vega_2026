@@ -6,7 +6,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Check if train is running based on schedule and current time
-const checkTrainRunningStatus = (trainSchedule) => {
+export const checkTrainRunningStatus = (trainSchedule) => {
     const now = new Date();
     const currentTime = now.getHours() * 60 + now.getMinutes(); // Minutes since midnight
 
@@ -40,10 +40,10 @@ const checkTrainRunningStatus = (trainSchedule) => {
     return true; // Default to running if unsure (safer for priority)
 };
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-const analyzeWithGemini = async (description, imageUrls, trainSchedule, isTrainRunning) => {
+export const analyzeWithGemini = async (description, imageUrls, trainSchedule, isTrainRunning) => {
     try {
+        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+        
         const currentTime = new Date().toLocaleTimeString("en-US", {
             hour12: false,
             hour: "2-digit",
@@ -51,24 +51,24 @@ const analyzeWithGemini = async (description, imageUrls, trainSchedule, isTrainR
         });
 
         // Build content parts - combine text and images
-        const contents = [];
+        const parts = [];
 
         // Add text prompt
         const prompt = `
-You are a railway complaint analysis system. Analyze the following passenger query and provide structured output.
+You are a railway complaint analysis system. Analyze the following passenger query and provide structured JSON output.
 
 Current Time: ${currentTime}
 
 Train Details:
-- Train No: ${trainSchedule.train_no || "N/A"}
-- Train Name: ${trainSchedule.train_name || "N/A"}
-- Current Station: ${trainSchedule.station_name} (${trainSchedule.station_code})
-- Arrival Time: ${trainSchedule.arrival_time || "N/A"}
-- Departure Time: ${trainSchedule.departure_time || "N/A"}
-- Source: ${trainSchedule.source_station_name} (${trainSchedule.source_station})
-- Destination: ${trainSchedule.destination_station_name} (${trainSchedule.destination_station})
-- Distance: ${trainSchedule.distance || "N/A"} km
-- Sequence No: ${trainSchedule.seq || "N/A"}
+- Train No: ${trainSchedule?.train_no || "N/A"}
+- Train Name: ${trainSchedule?.train_name || "N/A"}
+- Current Station: ${trainSchedule?.station_name || "N/A"} (${trainSchedule?.station_code || "N/A"})
+- Arrival Time: ${trainSchedule?.arrival_time || "N/A"}
+- Departure Time: ${trainSchedule?.departure_time || "N/A"}
+- Source: ${trainSchedule?.source_station_name || "N/A"} (${trainSchedule?.source_station || "N/A"})
+- Destination: ${trainSchedule?.destination_station_name || "N/A"} (${trainSchedule?.destination_station || "N/A"})
+- Distance: ${trainSchedule?.distance || "N/A"} km
+- Sequence No: ${trainSchedule?.seq || "N/A"}
 
 Is Train Currently Running: ${isTrainRunning ? "YES" : "NO"}
 
@@ -79,70 +79,38 @@ Instructions for Priority Analysis:
 - If train is RUNNING and issue is moderate (cleanliness, food quality, AC not working), priority should be MEDIUM-HIGH (60-80)
 - If train is NOT RUNNING, only assign HIGH priority (70-100) if CRITICAL (safety, security, medical emergency, accident, harassment)
 - If train is NOT RUNNING and issue is routine (booking, refund, inquiry), priority should be LOW-MEDIUM (20-50)
+
+Respond with a valid JSON object with the following structure:
+{
+  "categories": ["category1", "category2"],
+  "keywords": ["keyword1", "keyword2", "keyword3"],
+  "department": "department_name",
+  "priority_analysis": "explanation",
+  "is_urgent": true/false
+}
 `;
 
-        contents.push(prompt);
+        parts.push({ text: prompt });
 
-        // Add images if provided (Gemini can analyze images directly from URLs in most cases)
+        // Add images if provided - for now, we'll use image URLs in the text prompt
+        // Note: For production, you may want to fetch and convert images to base64
         if (imageUrls.length > 0) {
-            for (const imageUrl of imageUrls) {
-                contents.push({
-                    fileData: {
-                        mimeType: "image/jpeg", // Adjust based on actual image type
-                        fileUri: imageUrl
-                    }
-                });
-            }
+            parts.push({ text: `\nImages provided: ${imageUrls.join(", ")}` });
         }
 
-        // Use structured output (JSON mode) with response schema
-        const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash", // or "gemini-3-flash-preview" for latest
-            contents: contents,
-            config: {
+        const result = await model.generateContent({
+            contents: [{ role: "user", parts }],
+            generationConfig: {
                 responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        categories: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING },
-                            description:
-                                "Relevant categories (cleanliness, security, food, medical, technical, staff_behavior, infrastructure, delay, booking)"
-                        },
-                        keywords: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING },
-                            description: "5-10 relevant keywords for search"
-                        },
-                        department: {
-                            type: Type.STRING,
-                            description:
-                                "Single most relevant department (cleaning, security, catering, medical, engineering, operations, customer_service, reservations, commercial)"
-                        },
-                        priority_analysis: {
-                            type: Type.STRING,
-                            description: "Brief explanation of urgency assessment"
-                        },
-                        is_urgent: {
-                            type: Type.BOOLEAN,
-                            description: "Whether this requires immediate attention"
-                        }
-                    },
-                    required: [
-                        "categories",
-                        "keywords",
-                        "department",
-                        "priority_analysis",
-                        "is_urgent"
-                    ]
-                }
             }
         });
 
-        // Parse the JSON response directly
-        const result = JSON.parse(response.text);
-        return result;
+        const response = await result.response;
+        const text = response.text();
+        
+        // Parse the JSON response
+        const parsed = JSON.parse(text);
+        return parsed;
     } catch (error) {
         console.error("Gemini analysis failed:", error);
         return {
@@ -267,13 +235,20 @@ export const createQuery = asyncHandler(async (req, res) => {
     const {
         description,
         train_schedule, // Full train schedule object from dropdown
-        source,
-        user_location
+        train_number, // Train number (if train_schedule not provided)
+        station_code, // Station code
+        source
     } = req.body;
 
     const user_id = req.user._id; // From JWT middleware
 
-    // Validate train_schedule
+    // Validate train_schedule or train_number
+    if (!train_schedule && !train_number) {
+        return sendResponse(res, false, null, "Train schedule or train number is required", 400);
+    }
+    
+    // If train_schedule not provided but train_number is, we need to fetch it
+    // For now, require train_schedule to be provided
     if (!train_schedule || !train_schedule.train_no) {
         return sendResponse(res, false, null, "Train schedule information is required", 400);
     }
@@ -306,14 +281,9 @@ export const createQuery = asyncHandler(async (req, res) => {
     // Create query
     const query = await Query.create({
         user_id,
-        user_location: user_location
-            ? {
-                  type: "Point",
-                  coordinates: user_location.coordinates // [longitude, latitude]
-              }
-            : undefined,
         source,
         train_number: train_schedule.train_no,
+        station_code: station_code || train_schedule.station_code || null,
         train_details: {
             train_name: train_schedule.train_name,
             station_code: train_schedule.station_code,
