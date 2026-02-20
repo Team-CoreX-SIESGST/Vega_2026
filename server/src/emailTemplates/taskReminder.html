@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Reminder</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f7fa;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+        }
+        .task-card {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .task-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        .task-detail {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            color: #4a5568;
+        }
+        .task-detail i {
+            margin-right: 10px;
+            color: #667eea;
+            width: 20px;
+        }
+        .priority {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        .priority-high {
+            background-color: #fed7d7;
+            color: #c53030;
+        }
+        .priority-medium {
+            background-color: #feebc8;
+            color: #c05621;
+        }
+        .priority-low {
+            background-color: #c6f6d5;
+            color: #276749;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 14px 28px;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #718096;
+            font-size: 14px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .reminder-message {
+            background-color: #fffaf0;
+            border: 1px solid #feebc8;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .sender-info {
+            background-color: #f7fafc;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>🔔 Task Reminder</h1>
+            <p>You have a pending task that needs your attention</p>
+        </div>
+        
+        <div class="content">
+            {{#if isImmediate}}
+            <div style="background-color: #fff5f5; border-left: 4px solid #fc8181; padding: 12px; border-radius: 4px; margin-bottom: 20px;">
+                <strong>⏰ Immediate Reminder:</strong> This requires your immediate attention
+            </div>
+            {{/if}}
+            
+            <div class="task-card">
+                <div class="task-title">{{taskTitle}}</div>
+                
+                <div class="task-detail">
+                    <i>📅</i>
+                    <span><strong>Due Date:</strong> {{dueDate}}</span>
+                </div>
+                
+                {{#if daysLeft}}
+                <div class="task-detail">
+                    <i>⏳</i>
+                    <span><strong>Days Remaining:</strong> {{daysLeft}} days</span>
+                </div>
+                {{/if}}
+                
+                <div class="task-detail">
+                    <i>🏷️</i>
+                    <span><strong>Priority:</strong> <span class="priority priority-{{priority}}">{{priority}}</span></span>
+                </div>
+                
+                {{#if assignedBy}}
+                <div class="task-detail">
+                    <i>👤</i>
+                    <span><strong>Reminder from:</strong> {{assignedBy}}</span>
+                </div>
+                {{/if}}
+            </div>
+            
+            {{#if customMessage}}
+            <div class="reminder-message">
+                <strong>💬 Message from sender:</strong>
+                <p>{{customMessage}}</p>
+            </div>
+            {{/if}}
+            
+            <div style="text-align: center;">
+                <a href="{{taskUrl}}" class="cta-button">View Task Details</a>
+            </div>
+            
+            <div class="sender-info">
+                <p><strong>Note:</strong> This is a reminder for the task assigned to you. Please ensure timely completion to avoid delays in project timelines.</p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated reminder. Please do not reply to this email.</p>
+            <p>© {{currentYear}} Your Organization. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
