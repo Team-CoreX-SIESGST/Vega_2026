@@ -20,7 +20,8 @@ export default function IssuesPage() {
   const fetchComplaints = async () => {
     try {
       const res = await apiClient.get('/mobile/complaints');
-      setComplaints(res.data.complaints);
+      const payload = res.data?.data;
+      setComplaints(Array.isArray(payload?.complaints) ? payload.complaints : []);
     } catch (error) {
       console.error('Failed to fetch complaints', error);
     } finally {

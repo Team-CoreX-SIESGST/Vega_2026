@@ -25,7 +25,8 @@ export default function ComplaintPage() {
     setError('');
     try {
       const res = await apiClient.get(`/mobile/train/${trainNumber}`);
-      setTrainInfo(res.data.train);
+      const payload = res.data?.data;
+      setTrainInfo(payload?.train ?? null);
     } catch (err) {
       setError('Train number not found');
       setTrainInfo(null);
@@ -47,7 +48,8 @@ export default function ComplaintPage() {
         trainNumber: trainNumber || undefined,
         complaintText
       });
-      setResult(res.data.complaint);
+      const payload = res.data?.data;
+      setResult(payload?.complaint ?? null);
       // Clear form
       setTrainNumber('');
       setComplaintText('');

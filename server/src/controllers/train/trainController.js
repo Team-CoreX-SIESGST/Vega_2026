@@ -50,3 +50,16 @@ export const getTrains = asyncHandler(async (req, res) => {
     const trains = loadTrains();
     return sendResponse(res, true, { trains }, "Trains retrieved successfully", 200);
 });
+
+/** Get one train by number (first row matching Train No). Returns { train_name, zone } or null. */
+export function getTrainByNumber(trainNumber) {
+    if (!trainNumber) return null;
+    const trains = loadTrains();
+    const normalized = String(trainNumber).trim();
+    const row = trains.find((t) => String(t["Train No"] || "").trim() === normalized);
+    if (!row) return null;
+    return {
+        train_name: row["Train Name"] || row["train_name"] || "Unknown",
+        zone: row["Source Station Name"] || row["Source Station"] || "Indian Railways",
+    };
+}
