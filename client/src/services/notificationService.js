@@ -1,4 +1,4 @@
-import { apiClient } from "../api/api-client";
+import { apiClient } from "../utils/api_client";
 import { getApiErrorMessage } from "@/utils/apiErrorhelper";
 
 const BASE_URL = "/notifications";
