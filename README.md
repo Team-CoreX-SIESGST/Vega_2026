@@ -269,15 +269,6 @@ Set `NLPPY_URL=http://localhost:8002` in server env.
 
 ---
 
-## Notes and Operational Behavior
-
-- Gemini free-tier quota/rate-limit errors (429) can happen; complaint creation still proceeds with fallback analysis defaults.
-- Department classification is intentionally NLP-owned and derived from complaint text only.
-- Query search on View Queries is debounced to avoid API calls on every keystroke.
-- Map page is intentionally restricted to admin/super admin users.
-
----
-
 ## Current Folder Layout
 
 ```txt

@@ -6,10 +6,6 @@ import axios from "axios";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import {
-    seedTrainAlertMockData as seedTrainAlertMockDataService,
-    triggerTrainComplaintSpikeAlert
-} from "../../services/trainComplaintAlertService.js";
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -579,8 +575,6 @@ export const createQuery = asyncHandler(async (req, res) => {
         departments: [fastApiResult.department || "General"],
         status: "received"
     });
-
-    const trainAlert = await triggerTrainComplaintSpikeAlert({ query });
 
     return sendResponse(
         res,
