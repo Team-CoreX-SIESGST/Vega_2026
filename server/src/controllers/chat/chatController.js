@@ -1,19 +1,9 @@
-import { asyncHandler, sendResponse, statusType, chatLimiter } from "../../utils/index.js";
+import { asyncHandler, sendResponse, statusType } from "../../utils/index.js";
 import embeddingService from "../../services/embeddingService.js";
 import pineconeService from "../../services/pineconeService.js";
 import groqService from "../../services/groqService.js";
+import Query from "../../models/Query.js"; // Import your Query model
 
-/**
- * POST /api/chat/ask
- * Body: { query: string }
- *
- * RAG Flow:
- * 1. Embed the user's question (Gemini text-embedding-004)
- * 2. Similarity search in Pinecone (top-5 matching queries)
- * 3. Build context string from matched complaint documents
- * 4. Generate answer with Gemini (RAG prompt via groqService)
- * 5. Return { answer, sources }
- */
 export const askAI = asyncHandler(async (req, res) => {
     const { query } = req.body;
 
@@ -22,14 +12,50 @@ export const askAI = asyncHandler(async (req, res) => {
     }
 
     const trimmedQuery = query.trim();
-    console.log(`🔍 [Chat] RAG query from user ${req.user?._id}: "${trimmedQuery.slice(0, 100)}"`);
+    console.log(`\n🔍 === NEW CHAT QUERY ===`);
+    console.log(`User: ${req.user?._id}`);
+    console.log(`Query: "${trimmedQuery.slice(0, 100)}"`);
 
-    // 1. Similarity search in Pinecone
+    // DEBUG: Check MongoDB count first
+    const mongoCount = await Query.countDocuments();
+    console.log(`📊 MongoDB total documents: ${mongoCount}`);
+
+    // DEBUG: Check Pinecone stats
+    try {
+        const stats = await pineconeService.getStats();
+        console.log(`📈 Pinecone stats:`, JSON.stringify(stats, null, 2));
+    } catch (e) {
+        console.error(`❌ Pinecone stats error:`, e.message);
+    }
+
+    // 1. Generate embedding for query
+    console.log(`🔄 Generating embedding for query...`);
+    let queryEmbedding;
+    try {
+        queryEmbedding = await embeddingService.getEmbedding(trimmedQuery);
+        console.log(`✅ Embedding generated: ${queryEmbedding.length} dimensions`);
+        console.log(`   Sample values: [${queryEmbedding.slice(0, 3).join(", ")}...]`);
+    } catch (e) {
+        console.error(`❌ Embedding generation failed:`, e.message);
+        throw e;
+    }
+
+    // 2. Search Pinecone
+    console.log(`🔎 Searching Pinecone...`);
     const matches = await pineconeService.searchSimilar(trimmedQuery, 5);
 
-    console.log(`✅ [Chat] Found ${matches.length} relevant complaints in Pinecone`);
+    console.log(`📋 Search results: ${matches.length} matches`);
+    if (matches.length > 0) {
+        matches.forEach((m, i) => {
+            console.log(
+                `   [${i}] ID: ${m.id}, Score: ${m.score?.toFixed(4)}, Metadata: ${m.metadata ? "YES" : "NO"}`
+            );
+        });
+    } else {
+        console.log(`   ⚠️  NO MATCHES FOUND - This is why you're getting the fallback message!`);
+    }
 
-    // 2. Build context string from matched documents
+    // 3. Build context
     let context = "";
     const sources = [];
 
@@ -37,58 +63,52 @@ export const askAI = asyncHandler(async (req, res) => {
         context = matches
             .map((match, idx) => {
                 const m = match.metadata || {};
-                const score = match.score ? `(relevance: ${(match.score * 100).toFixed(1)}%)` : "";
-
-                // Build a human-readable summary for this match
-                const lines = [
-                    `[Complaint #${idx + 1}] ${score}`,
-                    `Description: ${m.description || "N/A"}`,
-                    `Category: ${m.category || "N/A"}`,
-                    `Status: ${m.status || "N/A"}`,
-                    `Priority: ${m.priority_percentage !== undefined ? m.priority_percentage + "%" : "N/A"}`,
-                    `Department: ${m.departments || "N/A"}`,
-                    `Train: ${m.train_name || m.train_number || "N/A"}`,
-                    `Station: ${m.station_name || m.station_code || "N/A"}`,
-                    `Created: ${m.created_at || "N/A"}`
-                ];
-
-                return lines.join("\n");
+                return `[${idx + 1}] ${m.description?.slice(0, 100) || "No description"} (Priority: ${m.priority_percentage}%)`;
             })
-            .join("\n\n---\n\n");
+            .join("\n");
 
-        // Build sources array for frontend display
         sources.push(
-            ...matches.map((match) => ({
-                id: match.id,
-                score: match.score,
-                description: match.metadata?.description || "",
-                status: match.metadata?.status || "",
-                priority: match.metadata?.priority_percentage,
-                category: match.metadata?.category || "",
-                train: match.metadata?.train_name || match.metadata?.train_number || "",
-                station: match.metadata?.station_name || match.metadata?.station_code || "",
-                department: match.metadata?.departments || "",
-                created_at: match.metadata?.created_at || ""
+            ...matches.map((m) => ({
+                id: m.id,
+                score: m.score,
+                description: m.metadata?.description || ""
             }))
         );
     }
 
-    // 3. Generate answer
+    // 4. Generate or fallback
     let answer;
-
     if (!context) {
-        answer =
-            "I couldn't find any relevant complaints in the database to answer your question. " +
-            "Try asking about specific trains, stations, complaint categories, or priority levels.";
+        console.log(`⚠️  No context built - using fallback message`);
+
+        // EMERGENCY FALLBACK: Get recent complaints directly from MongoDB
+        console.log(`🆘 Attempting MongoDB fallback...`);
+        const recentComplaints = await Query.find().sort({ createdAt: -1 }).limit(3).lean();
+
+        console.log(`   Found ${recentComplaints.length} recent complaints in MongoDB`);
+
+        if (recentComplaints.length > 0) {
+            // Build context from MongoDB
+            const mongoContext = recentComplaints
+                .map(
+                    (q, i) =>
+                        `[${i + 1}] ${q.description} (Priority: ${q.priority_percentage}%, Status: ${q.status})`
+                )
+                .join("\n");
+
+            answer = await groqService.ragGenerate(trimmedQuery, mongoContext);
+            console.log(`✅ Generated answer from MongoDB fallback`);
+        } else {
+            answer =
+                "I couldn't find any relevant complaints in the database to answer your question. Try asking about specific trains, stations, complaint categories, or priority levels.";
+        }
     } else {
+        console.log(`🤖 Sending to LLM with context (${context.length} chars)`);
         answer = await groqService.ragGenerate(trimmedQuery, context);
+        console.log(`✅ LLM response received (${answer.length} chars)`);
     }
 
-    return sendResponse(
-        res,
-        true,
-        { answer, sources },
-        "Answer generated successfully",
-        statusType.OK
-    );
+    console.log(`=== END CHAT ===\n`);
+
+    return sendResponse(res, true, { answer, sources }, "Answer generated", statusType.OK);
 });
