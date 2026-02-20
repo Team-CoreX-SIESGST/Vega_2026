@@ -7,7 +7,9 @@ import {
     updateQueryStatus,
     deleteQuery,
     getDashboardStatistics,
-    getStationQueryMapData
+    getStationQueryMapData,
+    getTrainComplaintAlerts,
+    seedTrainAlertMockData
 } from "./queryControllers.js";
 import { verifyJWT } from "../../middlewares/auth.middleware.js";
 import { upload } from "../../middlewares/multer.middleware.js";
@@ -25,6 +27,20 @@ router.get(
     "/map/stations",
     checkRole(["admin", "super_admin"]),
     getStationQueryMapData
+);
+
+// Train complaint alerts (Admin/Super Admin only)
+router.get(
+    "/train-alerts",
+    checkRole(["admin", "super_admin"]),
+    getTrainComplaintAlerts
+);
+
+// Seed mock data for train alerts (Admin/Super Admin only)
+router.post(
+    "/train-alerts/mock-seed",
+    checkRole(["admin", "super_admin"]),
+    seedTrainAlertMockData
 );
 
 // Create query with image upload (max 5 images)

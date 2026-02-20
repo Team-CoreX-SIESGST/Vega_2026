@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Home, LayoutDashboard, LogOut, MapPinned, Smartphone } from "lucide-react";
+import { AlertCircle, ChevronDown, Home, LayoutDashboard, LogOut, MapPinned, Smartphone } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const normalizeRole = (role = "") =>
@@ -129,6 +129,13 @@ export default function ProfileDropdown({ className = "" }) {
                 >
                   <MapPinned size={15} />
                   Map View
+                </Link>
+                <Link
+                  href="/dashboard/train-alerts"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <AlertCircle size={15} />
+                  Train Alerts
                 </Link>
               </>
             )}

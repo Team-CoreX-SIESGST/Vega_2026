@@ -7,6 +7,7 @@ import {
     checkTrainRunningStatus,
     classifyDepartmentWithFastApi
 } from "../query/queryControllers.js";
+import { triggerTrainComplaintSpikeAlert } from "../../services/trainComplaintAlertService.js";
 
 // GET /api/mobile/train/:trainNumber — validate train and return name + zone
 export const getTrain = asyncHandler(async (req, res) => {
@@ -106,10 +107,12 @@ export const createComplaint = asyncHandler(async (req, res) => {
         category: geminiAnalysis.categories,
         priority_percentage,
         description: effectiveDescription,
+        image_urls: [],
         keywords: geminiAnalysis.keywords,
         departments: [fastApiResult?.department || "General"],
         status: "received"
     });
+    const trainAlert = await triggerTrainComplaintSpikeAlert({ query });
 
     return sendResponse(
         res,
@@ -118,7 +121,8 @@ export const createComplaint = asyncHandler(async (req, res) => {
             query,
             gemini_analysis: geminiAnalysis,
             fastapi_classification: fastApiResult,
-            train_running: isTrainRunning
+            train_running: isTrainRunning,
+            train_alert: trainAlert
         },
         "Query created successfully",
         201
@@ -222,10 +226,12 @@ export const createComplaintWithGemini = asyncHandler(async (req, res) => {
         category: geminiAnalysis.categories,
         priority_percentage,
         description: description.trim(),
+        image_urls: imageUrls,
         keywords: geminiAnalysis.keywords,
         departments: [fastApiResult?.department || "General"],
         status: "received"
     });
+    const trainAlert = await triggerTrainComplaintSpikeAlert({ query });
 
     // Return the analysis results + stored query
     return sendResponse(
@@ -236,7 +242,8 @@ export const createComplaintWithGemini = asyncHandler(async (req, res) => {
             gemini_analysis: geminiAnalysis,
             fastapi_classification: fastApiResult,
             train_running: isTrainRunning,
-            images: imageUrls
+            images: imageUrls,
+            train_alert: trainAlert
         },
         "Query created successfully",
         201

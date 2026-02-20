@@ -516,6 +516,7 @@ function DashboardSidebar({ pathname, user }) {
     { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
     { label: 'View Queries', href: '/dashboard/queries', icon: FileText },
     { label: 'Station Map', href: '/map', icon: MapPinned },
+    { label: 'Train Alerts', href: '/dashboard/train-alerts', icon: AlertCircle },
     { label: 'RailMind ChatBot', href: '/chat', icon: MessageSquare },
   ];
 
