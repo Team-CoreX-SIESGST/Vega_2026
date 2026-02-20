@@ -21,16 +21,51 @@ export function AuthProvider({ children }) {
     const router = useRouter();
     const pathname = usePathname();
 
-    // Load user from localStorage on mount
+    // Load auth from localStorage on mount (then validate)
     useEffect(() => {
         const storedToken = localStorage.getItem('token');
         const storedUser = localStorage.getItem('user');
 
-        if (storedToken && storedUser) {
+        // Restore token even if user is missing (user will be fetched via /auth/check)
+        if (storedToken) {
             setToken(storedToken);
-            setUser(JSON.parse(storedUser));
         }
-        setLoading(false);
+
+        if (storedUser) {
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch {
+                localStorage.removeItem('user');
+            }
+        }
+
+        // If we have a token but no user, fetch user from backend.
+        // This prevents false redirects on hard refresh.
+        (async () => {
+            try {
+                if (storedToken && !storedUser) {
+                    const { data } = await apiClient.get('/auth/check', {
+                        headers: { Authorization: `Bearer ${storedToken}` },
+                    });
+                    if (data?.status && data?.data?.user) {
+                        setUser(data.data.user);
+                        localStorage.setItem('user', JSON.stringify(data.data.user));
+                    } else {
+                        localStorage.removeItem('token');
+                        setToken(null);
+                        setUser(null);
+                    }
+                }
+            } catch (e) {
+                // Token is invalid/expired; clear it.
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                setToken(null);
+                setUser(null);
+            } finally {
+                setLoading(false);
+            }
+        })();
     }, []);
 
     // Login function — POST /api/auth/login

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import {
   BarChart,
   Bar,
@@ -24,17 +25,18 @@ import {
   CheckCircle,
   Clock,
   TrendingUp,
-  Users,
   Train,
   Tag,
   Building2,
   BarChart3,
   RefreshCw,
-  Calendar
+  Calendar,
+  MessageSquare,
+  FileText
 } from 'lucide-react';
 import { getDashboardStatistics, getNotificationStatistics } from '@/services/dashboardService';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 const COLORS = {
   primary: '#4E4E94',
@@ -62,22 +64,26 @@ const statusColors = {
 };
 
 export default function DashboardPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState(null);
   const [notificationStats, setNotificationStats] = useState(null);
   const [error, setError] = useState(null);
-  const [selectedTimeRange, setSelectedTimeRange] = useState('30d');
 
   useEffect(() => {
+    // Wait for auth to hydrate on refresh before deciding.
+    if (authLoading) return;
+
     if (!isAuthenticated) {
       router.push('/auth/login?redirect=/dashboard');
       return;
     }
     fetchDashboardData();
-  }, [isAuthenticated, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, isAuthenticated, router]);
 
   const fetchDashboardData = async () => {
     try {
@@ -103,7 +109,7 @@ export default function DashboardPage() {
     fetchDashboardData();
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #F5F5FF 60%, #FFFFFF 100%)' }}>
         <div className="text-center">
@@ -145,30 +151,34 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(180deg, #FFFFFF 0%, #F5F5FF 60%, #FFFFFF 100%)' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b" style={{ borderBottomColor: 'rgba(78,78,148,0.15)' }}>
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold font-outfit" style={{ color: COLORS.foreground }}>
-              Dashboard <span style={{ color: COLORS.primary }}>Analytics</span>
-            </h1>
-            <p className="text-sm mt-1" style={{ color: COLORS.muted }}>
-              Comprehensive insights and statistics
-            </p>
-          </div>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200 hover:opacity-90 disabled:opacity-50"
-            style={{ backgroundColor: COLORS.primary, color: 'white' }}
-          >
-            <RefreshCw className={refreshing ? 'animate-spin' : ''} size={16} />
-            Refresh
-          </button>
-        </div>
-      </div>
+      <div className="flex min-h-screen">
+        <DashboardSidebar pathname={pathname} user={user} />
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+        <main className="flex-1 min-w-0">
+          {/* Header */}
+          <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b" style={{ borderBottomColor: 'rgba(78,78,148,0.15)' }}>
+            <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold font-outfit" style={{ color: COLORS.foreground }}>
+                  Dashboard <span style={{ color: COLORS.primary }}>Analytics</span>
+                </h1>
+                <p className="text-sm mt-1" style={{ color: COLORS.muted }}>
+                  Comprehensive insights and statistics
+                </p>
+              </div>
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200 hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: COLORS.primary, color: 'white' }}
+              >
+                <RefreshCw className={refreshing ? 'animate-spin' : ''} size={16} />
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard
@@ -462,8 +472,78 @@ export default function DashboardPage() {
             </ChartCard>
           </div>
         )}
+          </div>
+        </main>
       </div>
     </div>
+  );
+}
+
+function DashboardSidebar({ pathname, user }) {
+  const navItems = [
+    { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
+    { label: 'View Queries', href: '/dashboard/queries', icon: FileText },
+    { label: 'RailMind ChatBot', href: '/chat', icon: MessageSquare },
+  ];
+
+  return (
+    <aside
+      className="hidden md:flex w-72 shrink-0 border-r bg-white/70 backdrop-blur-md"
+      style={{ borderRightColor: 'rgba(78,78,148,0.15)' }}
+    >
+      <div className="w-full flex flex-col p-6">
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 rounded-lg" style={{ backgroundColor: COLORS.primaryLight }}>
+              <Train size={18} style={{ color: COLORS.primary }} />
+            </div>
+            <span className="font-outfit font-bold text-lg" style={{ color: COLORS.foreground }}>
+              Rail<span style={{ color: COLORS.primary }}>Mind</span>
+            </span>
+          </div>
+          <div className="text-xs" style={{ color: COLORS.muted }}>
+            {user?.name ? `Signed in as ${user.name}` : 'Analytics workspace'}
+          </div>
+        </div>
+
+        <nav className="space-y-2">
+          {navItems.map(({ label, href, icon: Icon }) => {
+            const active = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200"
+                style={{
+                  backgroundColor: active ? COLORS.primaryLight : 'transparent',
+                  border: `1px solid ${active ? 'rgba(78,78,148,0.25)' : 'transparent'}`,
+                  color: active ? COLORS.primary : COLORS.muted,
+                }}
+              >
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: active ? 'rgba(78,78,148,0.12)' : 'rgba(78,78,148,0.06)' }}
+                >
+                  <Icon size={18} style={{ color: active ? COLORS.primary : COLORS.muted }} />
+                </div>
+                <div className="font-semibold text-sm">{label}</div>
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="mt-auto pt-6">
+          <div className="rounded-xl p-4 border" style={{ borderColor: 'rgba(78,78,148,0.15)', backgroundColor: 'rgba(78,78,148,0.04)' }}>
+            <div className="text-sm font-semibold mb-1" style={{ color: COLORS.foreground }}>
+              Tip
+            </div>
+            <div className="text-xs leading-relaxed" style={{ color: COLORS.muted }}>
+              Use the Refresh button to pull the latest insights from the backend.
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
   );
 }
 
