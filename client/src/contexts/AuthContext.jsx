@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { apiClient } from '@/utils/api_client';
 
 const AuthContext = createContext({});
 
@@ -32,80 +33,64 @@ export function AuthProvider({ children }) {
         setLoading(false);
     }, []);
 
-    // Login function
+    // Login function — POST /api/auth/login
     const login = async (email, password) => {
         try {
-            const response = await fetch('http://localhost:8000/api/users/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, password }),
-                credentials: 'include'
-            });
-
-            const data = await response.json();
+            const { data } = await apiClient.post('/auth/login', { email, password });
 
             if (!data.status) {
                 throw new Error(data.message || 'Login failed');
             }
 
-            // Store token and user
-            localStorage.setItem('token', data.data.token);
-            localStorage.setItem('user', JSON.stringify(data.data.user));
-            setToken(data.data.token);
-            setUser(data.data.user);
+            const { user: userData, token: authToken } = data.data;
+            localStorage.setItem('token', authToken);
+            localStorage.setItem('user', JSON.stringify(userData));
+            setToken(authToken);
+            setUser(userData);
 
             return { success: true, data: data.data };
         } catch (error) {
-            return { success: false, error: error.message };
+            const message = error.response?.data?.message || error.message;
+            return { success: false, error: message };
         }
     };
 
-    // Register function
-    const register = async (name, email, password) => {
+    // Register function — POST /api/auth/register (name, email, password, role?, station?)
+    const register = async (name, email, password, role = 'user', station = null) => {
         try {
-            const response = await fetch('http://localhost:8000/api/users/register', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ name, email, password }),
-                credentials: 'include'
-            });
+            const body = { name, email, password, role };
+            if (station) body.station = station;
 
-            const data = await response.json();
+            const { data } = await apiClient.post('/auth/register', body);
 
             if (!data.status) {
                 throw new Error(data.message || 'Registration failed');
             }
 
-            // Store token and user
-            localStorage.setItem('token', data.data.token);
-            localStorage.setItem('user', JSON.stringify(data.data.user));
-            setToken(data.data.token);
-            setUser(data.data.user);
+            const { user: userData, token: authToken } = data.data;
+            localStorage.setItem('token', authToken);
+            localStorage.setItem('user', JSON.stringify(userData));
+            setToken(authToken);
+            setUser(userData);
 
             return { success: true, data: data.data };
         } catch (error) {
-            return { success: false, error: error.message };
+            const message = error.response?.data?.message || error.message;
+            return { success: false, error: message };
         }
     };
 
-    // Logout function
+    // Logout function — POST /api/auth/logout
     const logout = async () => {
         try {
-            await fetch('http://localhost:8000/api/users/logout', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-                credentials: 'include'
-            });
+            if (token) {
+                await apiClient.post('/auth/logout', null, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+            }
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
-            // Clear local state regardless of API call success
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             setToken(null);
@@ -114,28 +99,23 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // Get current user from API
+    // Get current user from API — GET /api/auth/check
     const getCurrentUser = async () => {
         if (!token) return null;
 
         try {
-            const response = await fetch('http://localhost:8000/api/users/me', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-                credentials: 'include'
+            const { data } = await apiClient.get('/auth/check', {
+                headers: { Authorization: `Bearer ${token}` },
             });
 
-            const data = await response.json();
-
-            if (data.status) {
-                setUser(data.data);
-                localStorage.setItem('user', JSON.stringify(data.data));
-                return data.data;
+            if (data.status && data.data?.user) {
+                const userData = data.data.user;
+                setUser(userData);
+                localStorage.setItem('user', JSON.stringify(userData));
+                return userData;
             }
         } catch (error) {
             console.error('Get current user error:', error);
-            // If token is invalid, logout
             logout();
         }
         return null;

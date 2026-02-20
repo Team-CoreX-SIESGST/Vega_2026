@@ -34,7 +34,7 @@ class ApiClient {
         if (error.response?.status === 401) {
           // Handle unauthorized access
           localStorage.removeItem("token");
-          window.location.href = "/login";
+          window.location.href = "/auth/login";
         }
         return Promise.reject(error);
       },

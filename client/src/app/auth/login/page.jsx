@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Train,
@@ -14,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { getStations } from "@/services/stationService";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ROLES = [
   { value: "user", label: "User" },
@@ -38,6 +41,8 @@ const normalizeStations = (apiResponse) => {
 };
 
 const LoginPage = () => {
+  const router = useRouter();
+  const { login } = useAuth();
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -113,8 +118,6 @@ const LoginPage = () => {
     else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = "Enter a valid email";
     if (!form.password) e.password = "Password is required";
     else if (form.password.length < 6) e.password = "Minimum 6 characters";
-    if (!form.role) e.role = "Please select a role";
-    if (isAdmin && !form.station) e.station = "Please select a station";
     return e;
   };
 
@@ -127,10 +130,13 @@ const LoginPage = () => {
     }
     setErrors({});
     setSubmitting(true);
-    // TODO: replace with real auth call
-    await new Promise((res) => setTimeout(res, 1500));
+    const result = await login(form.email, form.password);
     setSubmitting(false);
-    alert(`Logged in as ${form.role} — ${form.email}`);
+    if (result.success) {
+      router.push("/");
+      return;
+    }
+    setErrors({ api: result.error || "Login failed. Please try again." });
   };
 
   const selectedRole = ROLES.find((r) => r.value === form.role);
@@ -221,7 +227,7 @@ const LoginPage = () => {
               margin: 0,
             }}
           >
-            Sign in to your
+            Login to your
             <br />
             <em style={{ fontStyle: "italic", fontWeight: "400" }}>account</em>
           </h1>
@@ -303,345 +309,9 @@ const LoginPage = () => {
             </AnimatePresence>
           </div>
 
-          {/* Role Dropdown */}
-          <div ref={roleRef}>
-            <label style={labelStyle}>Role</label>
-            <div style={{ position: "relative" }}>
-              <div
-                onClick={() => {
-                  setRoleOpen((v) => !v);
-                  setStationOpen(false);
-                  setRoleSearch(""); // Reset search on open
-                }}
-                style={{
-                  ...inputStyle(!!errors.role),
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  cursor: "pointer",
-                  userSelect: "none",
-                  color: selectedRole ? "#1A1A2E" : "rgba(78,78,148,0.4)",
-                  paddingLeft: "1rem",
-                }}
-              >
-                <span style={{ fontSize: "0.875rem" }}>
-                  {selectedRole ? selectedRole.label : "Select your role"}
-                </span>
-                <motion.div
-                  animate={{ rotate: roleOpen ? 180 : 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <ChevronDown
-                    size={15}
-                    style={{ color: "rgba(78,78,148,0.5)" }}
-                  />
-                </motion.div>
-              </div>
-              <AnimatePresence>
-                {roleOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.18 }}
-                    style={dropdownStyle}
-                  >
-                    {/* Search Input for Roles */}
-                    <div style={searchContainerStyle}>
-                      <Search
-                        size={14}
-                        style={{
-                          color: "rgba(78,78,148,0.5)",
-                          marginRight: "8px",
-                        }}
-                      />
-                      <input
-                        ref={roleInputRef}
-                        type="text"
-                        placeholder="Search role..."
-                        value={roleSearch}
-                        onChange={(e) => setRoleSearch(e.target.value)}
-                        style={searchInputStyle}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      {roleSearch && (
-                        <X
-                          size={14}
-                          style={{
-                            color: "rgba(78,78,148,0.5)",
-                            cursor: "pointer",
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setRoleSearch("");
-                            roleInputRef.current?.focus();
-                          }}
-                        />
-                      )}
-                    </div>
-
-                    <div style={{ maxHeight: "200px", overflowY: "auto" }}>
-                      {filteredRoles.length > 0 ? (
-                        filteredRoles.map((role) => (
-                          <div
-                            key={role.value}
-                            onClick={() => {
-                              setForm((f) => ({
-                                ...f,
-                                role: role.value,
-                                station: "",
-                              }));
-                              setRoleOpen(false);
-                              setRoleSearch("");
-                            }}
-                            style={dropdownItemStyle(form.role === role.value)}
-                            onMouseEnter={(e) => {
-                              if (form.role !== role.value)
-                                e.currentTarget.style.background =
-                                  "rgba(78,78,148,0.06)";
-                            }}
-                            onMouseLeave={(e) => {
-                              if (form.role !== role.value)
-                                e.currentTarget.style.background =
-                                  "transparent";
-                            }}
-                          >
-                            {role.label}
-                          </div>
-                        ))
-                      ) : (
-                        <div
-                          style={{
-                            ...dropdownItemStyle(false),
-                            color: "rgba(78,78,148,0.5)",
-                            cursor: "default",
-                          }}
-                        >
-                          No roles found
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            <AnimatePresence>
-              {errors.role && <ErrorMsg msg={errors.role} />}
-            </AnimatePresence>
-          </div>
-
-          {/* Station Dropdown — only for Admin */}
+          {/* API error */}
           <AnimatePresence>
-            {isAdmin && (
-              <motion.div
-                key="station"
-                initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.28, ease: "easeInOut" }}
-                style={{ overflow: "hidden" }}
-                ref={stationRef}
-              >
-                <label style={labelStyle}>
-                  <MapPin
-                    size={12}
-                    style={{
-                      display: "inline",
-                      marginRight: "0.3rem",
-                      verticalAlign: "middle",
-                    }}
-                  />
-                  Assigned Station
-                </label>
-                <div style={{ position: "relative" }}>
-                  <div
-                    onClick={() => {
-                      if (!stationsLoading && !stationsError) {
-                        setStationOpen((v) => !v);
-                        setRoleOpen(false);
-                        setStationSearch(""); // Reset search on open
-                      }
-                    }}
-                    style={{
-                      ...inputStyle(!!errors.station),
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      cursor: stationsLoading ? "wait" : "pointer",
-                      userSelect: "none",
-                      color: selectedStation
-                        ? "#1A1A2E"
-                        : "rgba(78,78,148,0.4)",
-                      paddingLeft: "1rem",
-                      opacity: stationsError ? 0.6 : 1,
-                    }}
-                  >
-                    {stationsLoading ? (
-                      <span
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                          fontSize: "0.875rem",
-                          color: "rgba(78,78,148,0.5)",
-                        }}
-                      >
-                        <Loader2
-                          size={13}
-                          style={{ animation: "spin 1s linear infinite" }}
-                        />
-                        Loading stations…
-                      </span>
-                    ) : stationsError ? (
-                      <span style={{ fontSize: "0.875rem", color: "#e05252" }}>
-                        {stationsError}
-                      </span>
-                    ) : (
-                      <>
-                        <span style={{ fontSize: "0.875rem" }}>
-                          {selectedStation ? (
-                            <>
-                              <span
-                                style={{ display: "block", fontWeight: 600 }}
-                              >
-                                {selectedStation.code}: {selectedStation.name}
-                              </span>
-                              {selectedStation.state && (
-                                <span
-                                  style={{
-                                    display: "block",
-                                    fontSize: "0.75rem",
-                                    color: "rgba(78,78,148,0.6)",
-                                    fontWeight: 400,
-                                  }}
-                                >
-                                  {selectedStation.state}
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            "Select a station"
-                          )}
-                        </span>
-                        <motion.div
-                          animate={{ rotate: stationOpen ? 180 : 0 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <ChevronDown
-                            size={15}
-                            style={{ color: "rgba(78,78,148,0.5)" }}
-                          />
-                        </motion.div>
-                      </>
-                    )}
-                  </div>
-                  <AnimatePresence>
-                    {stationOpen && stations.length > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        transition={{ duration: 0.18 }}
-                        style={dropdownStyle}
-                      >
-                        {/* Search Input for Stations */}
-                        <div style={searchContainerStyle}>
-                          <Search
-                            size={14}
-                            style={{
-                              color: "rgba(78,78,148,0.5)",
-                              marginRight: "8px",
-                            }}
-                          />
-                          <input
-                            ref={stationInputRef}
-                            type="text"
-                            placeholder="Search station code or name..."
-                            value={stationSearch}
-                            onChange={(e) => setStationSearch(e.target.value)}
-                            style={searchInputStyle}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          {stationSearch && (
-                            <X
-                              size={14}
-                              style={{
-                                color: "rgba(78,78,148,0.5)",
-                                cursor: "pointer",
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setStationSearch("");
-                                stationInputRef.current?.focus();
-                              }}
-                            />
-                          )}
-                        </div>
-
-                        <div style={{ maxHeight: "220px", overflowY: "auto" }}>
-                          {filteredStations.length > 0 ? (
-                            filteredStations.map((s) => (
-                              <div
-                                key={s.code}
-                                onClick={() => {
-                                  setForm((f) => ({ ...f, station: s.code }));
-                                  setStationOpen(false);
-                                  setStationSearch("");
-                                }}
-                                style={dropdownItemStyle(
-                                  form.station === s.code,
-                                )}
-                                onMouseEnter={(e) => {
-                                  if (form.station !== s.code)
-                                    e.currentTarget.style.background =
-                                      "rgba(78,78,148,0.06)";
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (form.station !== s.code)
-                                    e.currentTarget.style.background =
-                                      "transparent";
-                                }}
-                              >
-                                <span
-                                  style={{ display: "block", fontWeight: 500 }}
-                                >
-                                  {s.code}: {s.name}
-                                </span>
-                                {s.state && (
-                                  <span
-                                    style={{
-                                      display: "block",
-                                      fontSize: "0.75rem",
-                                      color: "rgba(78,78,148,0.65)",
-                                      marginTop: "0.15rem",
-                                    }}
-                                  >
-                                    {s.state}
-                                  </span>
-                                )}
-                              </div>
-                            ))
-                          ) : (
-                            <div
-                              style={{
-                                ...dropdownItemStyle(false),
-                                color: "rgba(78,78,148,0.5)",
-                                cursor: "default",
-                              }}
-                            >
-                              No stations found
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-                <AnimatePresence>
-                  {errors.station && <ErrorMsg msg={errors.station} />}
-                </AnimatePresence>
-              </motion.div>
-            )}
+            {errors.api && <ErrorMsg msg={errors.api} />}
           </AnimatePresence>
 
           {/* Forgot password */}
@@ -702,7 +372,23 @@ const LoginPage = () => {
 
         <p
           style={{
-            marginTop: "2rem",
+            marginTop: "1.5rem",
+            textAlign: "center",
+            fontSize: "0.8rem",
+            color: "rgba(74,74,106,0.7)",
+          }}
+        >
+          Don&apos;t have an account?{" "}
+          <Link
+            href="/auth/register"
+            style={{ color: "#4E4E94", fontWeight: "600", textDecoration: "none" }}
+          >
+            Sign up
+          </Link>
+        </p>
+        <p
+          style={{
+            marginTop: "0.5rem",
             textAlign: "center",
             fontSize: "0.72rem",
             color: "rgba(74,74,106,0.5)",
