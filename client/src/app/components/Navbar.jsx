@@ -1,8 +1,12 @@
+'use client';
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Train } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -26,7 +30,7 @@ const Navbar = () => {
     >
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
-        <a href="#hero" className="flex items-center gap-2 group">
+        <Link href="/" className="flex items-center gap-2 group">
           <div
             className="p-1.5 rounded-lg transition-all duration-200 group-hover:scale-105"
             style={{ backgroundColor: "rgba(78,78,148,0.1)" }}
@@ -36,7 +40,7 @@ const Navbar = () => {
           <span className="font-outfit font-bold text-xl" style={{ color: "#1A1A2E" }}>
             Rail<span style={{ color: "#4E4E94" }}>Mind</span>
           </span>
-        </a>
+        </Link>
 
         {/* Nav Links */}
         <div className="hidden md:flex items-center gap-8">
@@ -54,14 +58,37 @@ const Navbar = () => {
           ))}
         </div>
 
-        {/* CTA Button */}
-        <a
-          href="#features"
-          className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 hover:opacity-90 hover:shadow-md"
-          style={{ backgroundColor: "#4E4E94" }}
-        >
-          View Dashboard
-        </a>
+        {/* CTA Buttons */}
+        <div className="hidden md:flex items-center gap-3">
+          {isAuthenticated ? (
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 hover:opacity-90 hover:shadow-md"
+              style={{ backgroundColor: "#4E4E94" }}
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/auth/login"
+                className="text-sm font-medium transition-colors duration-200"
+                style={{ color: "#4A4A6A" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#4E4E94")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#4A4A6A")}
+              >
+                Login
+              </Link>
+              <Link
+                href="/auth/login"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 hover:opacity-90 hover:shadow-md"
+                style={{ backgroundColor: "#4E4E94" }}
+              >
+                Get Started
+              </Link>
+            </>
+          )}
+        </div>
       </div>
     </nav>
   );
