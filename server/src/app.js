@@ -6,7 +6,9 @@ import { verifyJWT } from "./middlewares/auth.middleware.js";
 // import settingsRoute from "./controllers/settings/settingsRoute.js"
 import notificationRoute from "./controllers/notifications/notificationRoutes.js"
 import stationRoutes from "./controllers/station/stationRoutes.js";
+import trainRoutes from "./controllers/train/trainRoutes.js";
 
+app.use("/api/trains", trainRoutes);
 const app = express();
 
 app.use(
@@ -31,7 +33,7 @@ app.use("/api/auth", userRoute);
 app.use("/api/stations", stationRoutes);
 app.use(verifyJWT);
 app.use("/api/notifications", notificationRoute);
-
+app.use("/api/trains", trainRoutes);
 
 // backend route for OAuth callback
 app.get("/oauth2callback", (req, res) => {
