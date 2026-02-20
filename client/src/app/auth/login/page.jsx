@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -42,7 +42,13 @@ const normalizeStations = (apiResponse) => {
 
 const LoginPage = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
+  const redirectTo = searchParams.get("redirect");
+  const safeRedirect =
+    redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")
+      ? redirectTo
+      : "/";
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -133,7 +139,7 @@ const LoginPage = () => {
     const result = await login(form.email, form.password);
     setSubmitting(false);
     if (result.success) {
-      router.push("/");
+      router.push(safeRedirect);
       return;
     }
     setErrors({ api: result.error || "Login failed. Please try again." });
