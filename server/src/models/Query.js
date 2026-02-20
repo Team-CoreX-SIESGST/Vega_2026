@@ -59,7 +59,23 @@ const querySchema = new mongoose.Schema(
                 type: String,
                 trim: true
             }
-        ]
+        ],
+        status: {
+            type: String,
+            enum: [
+                "received",
+                "assigned",
+                "working_on",
+                "hold",
+                "pending_info",
+                "escalated",
+                "resolved",
+                "closed",
+                "rejected"
+            ],
+            default: "received",
+            index: true
+        }
     },
     {
         timestamps: true // adds createdAt and updatedAt automatically
@@ -73,5 +89,6 @@ querySchema.index({ user_location: "2dsphere" });
 // Note: category is now an array, so this creates a multikey index
 querySchema.index({ category: 1, priority_percentage: -1 });
 querySchema.index({ createdAt: -1 });
+querySchema.index({ status: 1, createdAt: -1 }); // useful for filtering by status with recent first
 
 export default mongoose.model("Query", querySchema);
