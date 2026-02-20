@@ -74,12 +74,22 @@ export default function DashboardQueriesPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState({ queries: [], pagination: null });
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [statusErrors, setStatusErrors] = useState({});
   const canUpdateStatus = isAdminRole(user?.role);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+      setPage(1);
+    }, 450);
+
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -87,10 +97,10 @@ export default function DashboardQueriesPage() {
     params.set('limit', '15');
     params.set('sortBy', 'createdAt');
     params.set('sortOrder', 'desc');
-    if (search.trim()) params.set('search', search.trim());
+    if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
     if (status !== 'all') params.set('status', status);
     return params.toString();
-  }, [page, search, status]);
+  }, [page, debouncedSearch, status]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -260,11 +270,8 @@ export default function DashboardQueriesPage() {
             <div className="flex items-center gap-2 rounded-lg border px-3 py-2" style={{ borderColor: 'rgba(78,78,148,0.2)' }}>
               <Search size={16} style={{ color: COLORS.muted }} />
               <input
-                value={search}
-                onChange={(e) => {
-                  setPage(1);
-                  setSearch(e.target.value);
-                }}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="description / train name / keyword"
                 className="w-full outline-none bg-transparent text-sm"
                 style={{ color: COLORS.foreground }}

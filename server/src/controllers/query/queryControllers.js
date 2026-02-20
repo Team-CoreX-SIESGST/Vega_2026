@@ -1,6 +1,7 @@
 import Query from "../../models/Query.js";
 import { asyncHandler, sendResponse, uploadOnCloudinary } from "../../utils/index.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import axios from "axios";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -145,7 +146,6 @@ Respond with a valid JSON object with the following structure:
 {
   "categories": ["category1", "category2"],
   "keywords": ["keyword1", "keyword2", "keyword3"],
-  "department": "department_name",
   "priority_score": 0-100,
   "priority_analysis": "brief explanation of why this priority score was assigned",
   "is_urgent": true/false
@@ -204,6 +204,9 @@ Example outputs:
         } else {
             console.log(`Gemini did not provide priority_score, will use calculation for: "${description.substring(0, 50)}..."`);
         }
+
+        // Department must come only from classifier, never from Gemini output.
+        delete parsed.department;
         
         return parsed;
     } catch (error) {
@@ -211,7 +214,6 @@ Example outputs:
         return {
             categories: ["general"],
             keywords: ["complaint", "railway", "issue", "train", "passenger"],
-            department: "customer_service",
             priority_analysis: "Default fallback due to analysis error",
             is_urgent: false
         };
@@ -331,6 +333,60 @@ export const calculatePriority = (isTrainRunning, geminiAnalysis, description) =
     const finalPriority = Math.min(100, Math.max(0, basePriority));
     console.log(`Calculated priority: ${finalPriority} (train running: ${isTrainRunning}, description: "${description.substring(0, 50)}...")`);
     return finalPriority;
+};
+
+// Classify department via external classifier (FastAPI/NLPPY).
+// This is the single source of truth for department assignment.
+export const classifyDepartmentWithFastApi = async ({
+    description,
+    category = null,
+    isUrgent = false,
+    trainNumber = null
+}) => {
+    const nlppyUrl = process.env.NLPPY_URL || process.env.NLP_URL;
+
+    if (!nlppyUrl) {
+        return {
+            department: "General",
+            confidence: 0,
+            source: "fallback_no_classifier"
+        };
+    }
+
+    try {
+        const { data } = await axios.post(
+            `${nlppyUrl.replace(/\/$/, "")}/classify`,
+            {
+                complaint_text: description?.trim() || "",
+                category,
+                priority: isUrgent ? "high" : "normal",
+                train_number: trainNumber || null
+            },
+            { timeout: 10000 }
+        );
+
+        if (data?.department) {
+            return {
+                department: data.department,
+                confidence:
+                    typeof data.confidence === "number" ? data.confidence : null,
+                source: "fastapi"
+            };
+        }
+
+        return {
+            department: "General",
+            confidence: 0,
+            source: "fallback_invalid_classifier_response"
+        };
+    } catch (err) {
+        console.warn("FastAPI classify failed:", err?.message);
+        return {
+            department: "General",
+            confidence: 0,
+            source: "fallback_classifier_error"
+        };
+    }
 };
 
 // Get map data with query counts by station (Admin/Super Admin)
@@ -493,6 +549,12 @@ export const createQuery = asyncHandler(async (req, res) => {
 
     // Calculate priority
     const priority_percentage = calculatePriority(isTrainRunning, geminiAnalysis, description);
+    const fastApiResult = await classifyDepartmentWithFastApi({
+        description,
+        category: geminiAnalysis.categories?.[0] || null,
+        isUrgent: geminiAnalysis.is_urgent === true,
+        trainNumber: train_schedule.train_no || null
+    });
 
     // Create query
     const query = await Query.create({
@@ -517,7 +579,7 @@ export const createQuery = asyncHandler(async (req, res) => {
         priority_percentage,
         description,
         keywords: geminiAnalysis.keywords,
-        departments: [geminiAnalysis.department],
+        departments: [fastApiResult.department || "General"],
         status: "received"
     });
 
@@ -528,6 +590,7 @@ export const createQuery = asyncHandler(async (req, res) => {
             query,
             train_running: isTrainRunning,
             analysis: geminiAnalysis,
+            fastapi_classification: fastApiResult,
             current_priority: priority_percentage
         },
         "Query created successfully",
@@ -702,9 +765,15 @@ export const updateQuery = asyncHandler(async (req, res) => {
             geminiAnalysis,
             description || query.description
         );
+        const fastApiResult = await classifyDepartmentWithFastApi({
+            description: description || query.description,
+            category: geminiAnalysis.categories?.[0] || null,
+            isUrgent: geminiAnalysis.is_urgent === true,
+            trainNumber: train_schedule.train_no || null
+        });
         query.category = geminiAnalysis.categories;
         query.keywords = geminiAnalysis.keywords;
-        query.departments = [geminiAnalysis.department];
+        query.departments = [fastApiResult.department || "General"];
     }
 
     await query.save();

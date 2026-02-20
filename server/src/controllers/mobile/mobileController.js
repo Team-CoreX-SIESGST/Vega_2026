@@ -1,8 +1,12 @@
 import { asyncHandler, sendResponse, uploadOnCloudinary } from "../../utils/index.js";
 import { getTrainByNumber, getTrainScheduleByNumber, getAllStationsForTrain } from "../train/trainController.js";
 import Query from "../../models/Query.js";
-import { analyzeWithGemini, calculatePriority, checkTrainRunningStatus } from "../query/queryControllers.js";
-import axios from "axios";
+import {
+    analyzeWithGemini,
+    calculatePriority,
+    checkTrainRunningStatus,
+    classifyDepartmentWithFastApi
+} from "../query/queryControllers.js";
 
 // GET /api/mobile/train/:trainNumber — validate train and return name + zone
 export const getTrain = asyncHandler(async (req, res) => {
@@ -74,35 +78,12 @@ export const createComplaint = asyncHandler(async (req, res) => {
 
     const priority_percentage = calculatePriority(isTrainRunning, geminiAnalysis, effectiveDescription);
 
-    // FastAPI classifier (optional)
-    let fastApiResult = null;
-    const nlppyUrl = process.env.NLPPY_URL || process.env.NLP_URL;
-    if (nlppyUrl) {
-        try {
-            const { data } = await axios.post(
-                `${nlppyUrl.replace(/\/$/, "")}/classify`,
-                {
-                    complaint_text: effectiveDescription,
-                    category: geminiAnalysis.categories?.[0] || null,
-                    priority: geminiAnalysis.is_urgent ? "high" : "normal",
-                    train_number: finalTrainSchedule?.train_no || effectiveTrainNumber || null
-                },
-                { timeout: 10000 }
-            );
-            fastApiResult = data;
-        } catch (err) {
-            console.warn("FastAPI classify failed:", err?.message);
-            fastApiResult = {
-                department: geminiAnalysis.department || "General",
-                confidence: 0.5
-            };
-        }
-    } else {
-        fastApiResult = {
-            department: geminiAnalysis.department || "General",
-            confidence: 0.7
-        };
-    }
+    const fastApiResult = await classifyDepartmentWithFastApi({
+        description: effectiveDescription,
+        category: geminiAnalysis.categories?.[0] || null,
+        isUrgent: geminiAnalysis.is_urgent === true,
+        trainNumber: finalTrainSchedule?.train_no || effectiveTrainNumber || null
+    });
 
     const query = await Query.create({
         user_id: req.user._id,
@@ -128,7 +109,7 @@ export const createComplaint = asyncHandler(async (req, res) => {
         priority_percentage,
         description: effectiveDescription,
         keywords: geminiAnalysis.keywords,
-        departments: [fastApiResult?.department || geminiAnalysis.department],
+        departments: [fastApiResult?.department || "General"],
         status: "received"
     });
 
@@ -209,42 +190,18 @@ export const createComplaintWithGemini = asyncHandler(async (req, res) => {
         geminiAnalysis = {
             categories: ["general"],
             keywords: ["complaint", "railway", "issue"],
-            department: "customer_service",
             priority_analysis: "Analysis failed",
             is_urgent: false
         };
     }
 
-    // Step 2: Send Gemini output to FastAPI classifier
-    let fastApiResult = null;
-    const nlppyUrl = process.env.NLPPY_URL || process.env.NLP_URL;
-    if (nlppyUrl) {
-        try {
-            const { data } = await axios.post(
-                `${nlppyUrl.replace(/\/$/, "")}/classify`,
-                {
-                    complaint_text: description.trim(),
-                    category: geminiAnalysis.categories?.[0] || null,
-                    priority: geminiAnalysis.is_urgent ? "high" : "normal",
-                    train_number: finalTrainSchedule?.train_no || train_number || null
-                },
-                { timeout: 10000 }
-            );
-            fastApiResult = data;
-        } catch (err) {
-            console.warn("FastAPI classify failed:", err?.message);
-            fastApiResult = {
-                department: geminiAnalysis.department || "General",
-                confidence: 0.5
-            };
-        }
-    } else {
-        // Fallback if FastAPI URL not configured
-        fastApiResult = {
-            department: geminiAnalysis.department || "General",
-            confidence: 0.7
-        };
-    }
+    // Step 2: Department classification from classifier (single source of truth)
+    const fastApiResult = await classifyDepartmentWithFastApi({
+        description: description.trim(),
+        category: geminiAnalysis.categories?.[0] || null,
+        isUrgent: geminiAnalysis.is_urgent === true,
+        trainNumber: finalTrainSchedule?.train_no || train_number || null
+    });
 
     // Calculate priority (Query schema expects this)
     const priority_percentage = calculatePriority(isTrainRunning, geminiAnalysis, description.trim());
@@ -274,7 +231,7 @@ export const createComplaintWithGemini = asyncHandler(async (req, res) => {
         priority_percentage,
         description: description.trim(),
         keywords: geminiAnalysis.keywords,
-        departments: [fastApiResult?.department || geminiAnalysis.department],
+        departments: [fastApiResult?.department || "General"],
         status: "received"
     });
 

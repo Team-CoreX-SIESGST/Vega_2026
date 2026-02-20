@@ -124,7 +124,7 @@ export function AuthProvider({ children }) {
     const logout = async () => {
         try {
             if (token) {
-                await apiClient.post('/auth/logout', null, {
+                await apiClient.post('/auth/logout', {}, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
             }
